@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"os"
 	"os/exec"
@@ -30,9 +31,18 @@ const triageQuestions = `{
 
 var jev = &http.Client{Timeout: 1500 * time.Millisecond}
 
+// Routing: a page is a list of sections, and each phrase changes one of them. The page sends the names of its sections.
+// Jev tells where the phrase goes: to a new section, to every section, or to the section that the phrase names.
+// No clear answer gives no target: then the page takes the section that the user points at or looks at.
+const (
+	askNew = "A user speaks to a tool that edits a web page. Does the speaker ask to add a whole new section or block to the page (a footer, a pricing block, a gallery, \"one more section\")? Answer no when the speaker changes, redoes, moves or removes a thing that is on the page, and no for a small new element (a button, an icon, a photo, a link, a word)."
+	askAll = "A user speaks to a tool that edits a web page. Does the speaker ask for one change of the whole page, the whole site or every section (the font everywhere, all colours, tidy the site, fix everything)? Answer no when the speech is about one section or one element."
+)
+
 func triage(w http.ResponseWriter, r *http.Request) {
 	var in struct {
-		Text string `json:"text"`
+		Text     string   `json:"text"`
+		Sections []string `json:"sections"` // a short name of each section, top to bottom
 	}
 	json.NewDecoder(r.Body).Decode(&in)
 	out := map[string]any{"filler": false, "look": false, "versions": false}
@@ -42,7 +52,21 @@ func triage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	t0 := time.Now()
-	body, _ := json.Marshal(map[string]any{"model": "jev-latest", "state": in.Text, "questions": json.RawMessage(triageQuestions)})
+	var questions map[string]map[string]string
+	json.Unmarshal([]byte(triageQuestions), &questions)
+	if len(in.Sections) > 0 {
+		questions["new"] = map[string]string{"type": "noul", "instructions": askNew}
+		questions["all"] = map[string]string{"type": "noul", "instructions": askAll}
+		list := ""
+		for i, name := range in.Sections {
+			list += fmt.Sprintf("%d. %s\n", i+1, name)
+		}
+		for i := range in.Sections {
+			questions[fmt.Sprint("s", i)] = map[string]string{"type": "noul", "instructions": fmt.Sprintf(
+				"A user speaks to a tool that edits a web page. The sections of the page, top to bottom:\n%sDoes the speaker name section %d as the place of the change, by its name, its content or its position (first, last, top, bottom)? Answer no when the speech names no section.", list, i+1)}
+		}
+	}
+	body, _ := json.Marshal(map[string]any{"model": "jev-latest", "state": in.Text, "questions": questions})
 	req, _ := http.NewRequestWithContext(r.Context(), "POST", "https://api.typesafe.ai/v1/systemone", bytes.NewReader(body))
 	req.Header.Set("Authorization", "Bearer "+key)
 	req.Header.Set("Content-Type", "application/json")
@@ -61,7 +85,22 @@ func triage(w http.ResponseWriter, r *http.Request) {
 	f, l, v := got.Answers["filler"].Noul, got.Answers["look"].Noul, got.Answers["versions"].Noul
 	out["filler"], out["versions"] = f >= 0.8, f < 0.8 && v >= 0.6
 	out["look"] = f < 0.8 && v < 0.6 && l >= 0.6
-	logEvent(map[string]any{"src": "server", "event": "triage", "text": in.Text, "filler": f, "look": l, "versions": v, "ms": time.Since(t0).Milliseconds()})
+	ev := map[string]any{"src": "server", "event": "triage", "text": in.Text, "filler": f, "look": l, "versions": v}
+	// The target is the best answer over the limit. A named section wins over "new" and "all" at the same score.
+	best := 0.6
+	for i := range in.Sections {
+		if s := got.Answers[fmt.Sprint("s", i)].Noul; s >= best {
+			best, out["target"] = s, i
+		}
+	}
+	for _, k := range []string{"new", "all"} {
+		ev[k] = got.Answers[k].Noul
+		if s := got.Answers[k].Noul; s > best {
+			best, out["target"] = s, k
+		}
+	}
+	ev["target"], ev["ms"] = out["target"], time.Since(t0).Milliseconds()
+	logEvent(ev)
 }
 
 // The screenshot is the browser window whose title holds the name that the page gave itself.

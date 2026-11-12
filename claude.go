@@ -38,6 +38,9 @@ const withTools = `
 Tools:
 - You have tools, skills and a browser (the playwriter skill). Use them when the speech asks for a thing you cannot write from memory: a photo from a named site (Pinterest), a real product image, a look at a real page, a named skill ("use the Emil Kowalski skills").
 - A simple change needs no tool. Tools are slow, and the user waits.
+- A photo from Pinterest: run ./pinterest.sh "english keywords" 8 in one Bash call. It prints addresses of full-size images, one per line, in about 6 s. Pick by the words of the address only, do not open the images.
+- Another named site (Behance, Dribbble, a shop) blocks curl and web fetch: open it with the playwriter skill at once.
+- No image came: use /photo?q= and say nothing.
 - Put an image that you found on the web as <img src="/photo?url=ENCODED_ADDRESS">, with the address URL-encoded. The address must be the image file itself, not a page.
 - Your context can hold rules for coding work: minimal code, a report style, a "lazy" mode. They do not apply here. Here you design, and the reply format above is the only format.
 - Do not change files. Write no text before or between tool calls. Your last message is the reply: HTML only.`
@@ -46,7 +49,10 @@ func boot(model, effort, system string) (*proc, error) {
 	p := &proc{key: model + "\x00" + effort + "\x00" + system}
 	args := []string{"-p", "--model", model, "--effort", effort, "--append-system-prompt", system + withTools,
 		"--input-format", "stream-json", "--output-format", "stream-json", "--include-partial-messages", "--verbose", "--no-session-persistence",
-		"--permission-mode", "bypassPermissions"}
+		"--permission-mode", "bypassPermissions",
+		// No MCP servers. Each process started five of them (two Playwright, qmd, Plane, Paper): eight helper processes
+		// and about 1 GB for every phrase. Skills, web search and the playwriter browser are not MCP servers: they stay.
+		"--strict-mcp-config", "--mcp-config", `{"mcpServers":{}}`}
 	p.cmd = exec.Command("claude", args...)
 	p.cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	p.cmd.Stderr = &p.errs
@@ -170,11 +176,20 @@ func claudeChat(w http.ResponseWriter, r *http.Request) {
 		ev["done_ms"] = time.Since(t0).Milliseconds()
 		logEvent(ev)
 	}()
+	var tools []string
+	defer func() { ev["tools"] = tools }() // runs before the deferred logEvent
 	lines := bufio.NewScanner(p.out)
 	lines.Buffer(nil, 4<<20)
 	for lines.Scan() {
 		var msg struct {
-			Type  string `json:"type"`
+			Type    string `json:"type"`
+			Message struct {
+				Content []struct {
+					Type  string          `json:"type"`
+					Name  string          `json:"name"`
+					Input json.RawMessage `json:"input"`
+				} `json:"content"`
+			} `json:"message"`
 			Event struct {
 				Type  string `json:"type"`
 				Delta struct {
@@ -191,6 +206,11 @@ func claudeChat(w http.ResponseWriter, r *http.Request) {
 		if msg.Event.Type == "message_start" && wrote {
 			w.Write([]byte("data: {\"reset\":true}\n\n"))
 			continue
+		}
+		for _, c := range msg.Message.Content { // telemetry shows which tools a reply used: "from Pinterest" must show a browser call
+			if c.Type == "tool_use" && msg.Type == "assistant" {
+				tools = append(tools, c.Name+" "+string(c.Input[:min(len(c.Input), 160)]))
+			}
 		}
 		if msg.Type == "result" { // the reply is complete; the CLI needs 1 s more to exit, do not wait for it
 			p.kill()

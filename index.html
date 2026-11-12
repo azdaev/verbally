@@ -162,7 +162,6 @@ const WAIT = CLAUDE && !q.get('partial')
 const JEV = CLAUDE && !q.get('nojev')
 // The page gives its window a name of its own, so the server can take a screenshot of the right window.
 document.title = 'Verbally ' + Math.random().toString(36).slice(2, 6)
-const DONE = /section\s+(is\s+)?(done|ready)|next\s+section|секци[яию]\s+готов\S*|следующая\s+секция/i
 
 const $ = id => document.getElementById(id)
 // tele adds one event to telemetry.jsonl, so a lost phrase or a silent change of recognizer can be found later.
@@ -188,11 +187,12 @@ function leave(el, after) {
 }
 // keepTodo keeps the phrases that Claude has not finished, so a reload does not lose them: the page says them again.
 const keepTodo = () => PAGE && localStorage.setItem('verbally.' + PAGE + '.todo',
-  JSON.stringify([...$('canvas').children].flatMap((sec, i) => [...sec.phrases.map(p => p.text), ...sec.queued].map(text => ({ i, text })))))
+  JSON.stringify([...new Set([...$('canvas').children].flatMap(sec => [...sec.phrases.map(p => p.text), ...sec.queued]))]))
 // settle marks the phrases that are on the page now as done. `pending` holds the phrases that still wait.
 function settle(sec) {
   while (sec.phrases.length && !sec.pending.endsWith(sec.phrases.map(p => p.text).join(' '))) {
     const { el } = sec.phrases.shift()
+    if (--el.n > 0) continue // a phrase for the whole page: its chip waits for the last section
     el.classList.add('done')
     fit() // the check mark makes the chip wider
     leave(el, 1400)
@@ -201,26 +201,61 @@ function settle(sec) {
 // triage asks Jev about a phrase. The answer is kept, so a question that was asked while the user still spoke costs no time at the end of the phrase.
 const triaged = new Map()
 let triageTimer
+const live = () => [...$('canvas').children].filter(sec => sec.html)
+// The name of a section for Jev: what it is and what it says. A speaker says "the hero" or "the reviews"; the heading alone often has no such word.
+const isFooter = sec => /<footer\b|©|&copy;/i.test(sec.html)
+const label = (sec, i) => [i ? '' : 'hero, top of the page', isFooter(sec) ? 'footer' : '', sec.firstElementChild?.id, sec.textContent].filter(Boolean).join(': ').replace(/\s+/g, ' ').slice(0, 140)
+// The answer holds `secs`, the sections that Jev saw: `target` is a number in that list, 'new' or 'all'.
 function triage(text) {
   if (!JEV) return Promise.resolve({})
-  const key = text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim() // the final text differs from the half-heard text in punctuation only
-  if (!triaged.has(key)) triaged.set(key, fetch('/api/triage', { method: 'POST', body: JSON.stringify({ text }) }).then(r => r.json()).catch(() => ({})))
+  const secs = live()
+  const key = secs.length + ' ' + text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim() // the final text differs from the half-heard text in punctuation only
+  if (!triaged.has(key)) triaged.set(key, fetch('/api/triage', { method: 'POST', body: JSON.stringify({ text, sections: secs.map(label) }) })
+    .then(r => r.json()).catch(() => ({})).then(t => ({ ...t, secs })))
   return triaged.get(key)
 }
 const note = text => leave(chip(text, 'err'), 5000) // a problem the user must know about
 let system = ''
 let cur // the section that speech changes now
 
+// The page is a list of sections, top to bottom. Each phrase changes one section, so two phrases for two sections run side by side,
+// and a change reads and writes one section, not the whole page.
 // A section holds four texts:
 //   html    - the base: HTML that holds only final speech
 //   said    - final speech that is already in html
 //   pending - final speech that is not in html yet
 //   partial - speech that the recognizer can still change
-function newSection() {
+function newSection(after) {
   const sec = document.createElement('div')
-  Object.assign(sec, { html: '', said: '', pending: '', partial: '', phrases: [], queued: [], gate: Promise.resolve(), look: false, busy: false, preview: null, shown: '', point: '', heardAt: 0 })
-  $('canvas').append(sec)
-  select(sec)
+  Object.assign(sec, { html: '', said: '', pending: '', partial: '', phrases: [], queued: [], look: false, busy: false, preview: null, shown: '', point: '', heardAt: 0 })
+  after ? after.after(sec) : $('canvas').append(sec)
+  return sec
+}
+
+// split runs when a reply becomes the base of a section. One reply can hold several <section> elements
+// ("a landing page with a hero, prices and a footer"): each becomes a section of its own. An empty <section> removes the section.
+function split(sec) {
+  const t = document.createElement('template')
+  t.innerHTML = sec.html
+  if (!t.content.querySelector('section > *, :not(section)') && !t.content.textContent.trim()) {
+    sec.html = ''
+    if ($('canvas').children.length > 1) sec.remove()
+    else show(sec, '')
+    if (!cur.isConnected) select($('canvas').firstChild)
+    return
+  }
+  const parts = ['']
+  let has = false
+  for (const n of t.content.childNodes) { // a <style> next to a section stays with it
+    if (n.nodeName === 'SECTION') { if (has) parts.push(''); has = true }
+    parts[parts.length - 1] += n.outerHTML ?? n.textContent
+  }
+  if (parts.length < 2) return
+  for (const [i, html] of parts.entries()) {
+    if (i) sec = newSection(sec)
+    sec.html = html
+    show(sec, html)
+  }
 }
 
 // The page lives in this browser's storage, so a reload keeps it. Only final speech is saved, never a preview.
@@ -281,11 +316,11 @@ function paint(page) {
   $('live').textContent = ''
   fit()
   for (const { html, said } of page) {
-    newSection()
-    Object.assign(cur, { html, said })
-    show(cur, html)
+    const sec = newSection()
+    Object.assign(sec, { html, said })
+    show(sec, html)
   }
-  if (!cur) newSection()
+  select($('canvas').firstChild || newSection())
   offer()
 }
 
@@ -302,11 +337,9 @@ async function restore() {
   const v = JSON.parse(PAGE && localStorage.getItem('verbally.' + PAGE + '.versions') || 'null')
   const sec = v && $('canvas').children[v.index]
   if (sec) versions(sec, v.cmd, null, { n: v.n, built: v.built.filter(b => b.html) })
-  // Phrases that Claude had not finished before the reload: say them again, each to its section.
-  for (const { i, text } of todo) {
-    select($('canvas').children[i] || $('canvas').lastChild)
-    hear(text, true)
-  }
+  // Phrases that Claude had not finished before the reload: say them again.
+  // ponytail: a phrase that the user pointed with loses its pointer. Keep the pointer text with the phrase if that hurts.
+  for (const text of new Set(todo.map(p => p.text || p))) hear(text, true)
 }
 
 function select(sec) {
@@ -315,49 +348,72 @@ function select(sec) {
   cur.classList.add('cur')
 }
 
-// hear takes text from any source: microphone partial, microphone final, keyboard.
+// hear takes text from any source: microphone partial, microphone final, a test.
+// A final phrase goes to Jev, then to its section:
+//   1. the section that the user pointed at with ⌘ during the phrase;
+//   2. the target that Jev names: a new section, every section, or one section by its name or place;
+//   3. the section of the phrase before, when that phrase is at most 12 s old ("and make it blue");
+//   4. the section in the middle of the screen.
+let gate = Promise.resolve() // keeps the phrases in the order of speech while Jev answers
+let spoke = null // the pointer that was there during this phrase
+let last = { sec: null, at: 0 }
+function inView() {
+  const secs = live(), mid = innerHeight / 2
+  return secs.find(sec => { const r = sec.getBoundingClientRect(); return r.top <= mid && r.bottom >= mid }) || secs.at(-1) || cur
+}
+// A new section goes to the end of the page, but above a footer.
+const above = () => { const end = live().at(-1); return isFooter(end) ? end.previousSibling : end }
 function hear(text, final) {
-  const sec = cur
-  const m = text.match(DONE)
-  const tidy = t => t.replace(/^[\s.,;:!?-]+/, '').trim() // the recognizer leaves punctuation next to the marker
-  const cmd = tidy(m ? text.slice(0, m.index) : text)
-  if (cmd) sec.heardAt = performance.now()
-  if (point && sec.contains(point.el)) sec.point = point.text // the user pointed with ⌘ before or during this speech
+  const cmd = text.replace(/^[\s.,;:!?-]+/, '').trim() // the recognizer leaves punctuation at the start
+  if (point) spoke = point
   $('live').textContent = final ? '' : cmd
   fit()
   if (!final) {
-    if (!WAIT) { sec.partial = cmd; pump(sec) }
+    if (!WAIT) { cur.partial = cmd; cur.heardAt = performance.now(); pump(cur) }
     // The user made a short stop: ask Jev now. The end of the phrase comes 0.5 s later and finds the answer ready.
     clearTimeout(triageTimer)
     if (cmd) triageTimer = setTimeout(() => triage(cmd), 200)
     return
   }
-  sec.partial = ''
-  const el = cmd && chip(cmd)
-  if (cmd) tele({ event: 'heard', text: cmd })
-  // gate keeps the phrases of a section in the order of speech while Jev answers.
-  sec.gate = sec.gate.then(() => cmd ? triage(cmd) : {}).then(t => {
+  cur.partial = ''
+  if (!cmd) return
+  const heardAt = performance.now(), pointed = spoke, seen = inView() // where the user points and looks now, not when Jev answers
+  spoke = null
+  const el = chip(cmd)
+  tele({ event: 'heard', text: cmd })
+  gate = gate.then(() => triage(cmd)).then(t => {
     if (t.filler) { // nothing to act on: Claude never gets it
       el.classList.add('skip')
       leave(el, 900)
       tele({ event: 'filler', text: cmd })
-    } else if (cmd && t.versions) {
-      sec.queued.push(cmd) // kept for a reload until the layout job starts and keeps itself
-      keepTodo()
-      versions(sec, cmd, el)
+      return
     }
-    else if (cmd) {
+    const ok = sec => sec?.isConnected && sec
+    const named = ok(t.secs?.[t.target]), recent = heardAt - last.at < 12000 && ok(last.sec)
+    const one = !live().length ? cur : ok(pointed?.sec) || named || recent || ok(seen) || cur
+    if (t.versions) {
+      one.queued.push(cmd) // kept for a reload until the layout job starts and keeps itself
+      keepTodo()
+      return versions(one, cmd, el)
+    }
+    const direct = !live().length || ok(pointed?.sec)
+    const targets = !direct && t.target === 'all' ? live() : [!direct && t.target === 'new' ? newSection(above()) : one]
+    tele({ event: 'route', text: cmd, by: direct ? (live().length ? 'pointer' : 'empty') : t.target ?? (recent ? 'recent' : 'view'), sections: targets.map(sec => [...$('canvas').children].indexOf(sec)) })
+    el.n = targets.length
+    for (const sec of targets) {
       if (t.look) { sec.look = true; el.classList.add('look') }
+      if (sec === pointed?.sec) sec.point = pointed.text
+      sec.heardAt = heardAt
       sec.pending = (sec.pending + ' ' + cmd).trim()
-      sec.phrases.push({ text: cmd, el })
-      keepTodo()
-      pump(sec)
+      sec.phrases.push({ text: cmd, el, all: targets.length > 1 })
     }
-    if (!m) return
-    if (sec.html || sec.pending) newSection() // a second "section done" must not add an empty section
-    const rest = tidy(text.slice(m.index + m[0].length)) // words after the marker belong to the next section
-    if (rest) hear(rest, true)
-  })
+    keepTodo()
+    select(targets[0])
+    if (!targets[0].html) targets[0].scrollIntoView({ block: 'center', behavior: 'smooth' }) // a new section: show where it grows
+    if (targets.length === 1) last = { sec: targets[0], at: heardAt }
+    // A change of the whole page: the first section changes first, then the others see it and follow it.
+    pump(targets[0]).then(() => targets.slice(1).forEach(pump))
+  }).catch(e => note(e.message)) // one bad phrase must not stop the phrases after it
 }
 
 // The picker shows versions to choose from, in a strip above the bar.
@@ -425,7 +481,7 @@ function offer() {
 
 // versions builds several layouts of one section at the same time, each from its own layout idea, and lets the user pick.
 // The requests run side by side, so five layouts need the time of the slowest one, not the sum.
-// ponytail: fixed layout ideas, and the versions are lost on a reload. Let the model name the ideas when the picks look alike.
+// ponytail: fixed layout ideas. Let the model name the ideas when the picks look alike.
 const IDEAS = [
   'type only: the words carry the section, very large, no image or a very small one',
   'full-bleed image or colour field with the text set over it',
@@ -452,6 +508,7 @@ function layouts(sec, cmd, n, built, el) {
       sec.said = (sec.said + ' ' + cmd).trim()
     }
     show(sec, sec.html)
+    if (html) split(sec)
     save()
     tele({ event: 'picked_layout', picked: !!html, of: built.length })
     if (el) el.classList.add('done'), leave(el, 1400)
@@ -513,6 +570,7 @@ async function pump(sec) {
     sec.point = '' // the next speech needs a fresh pointer
     settle(sec)
     unpoint()
+    split(sec)
     save()
     offer()
     return pump(sec)
@@ -525,8 +583,21 @@ async function pump(sec) {
   sec.busy = false
   sec.classList.remove('busy')
   if (!html) return // the error is on screen; the next speech tries again
+  // Claude found nothing to change here: the phrase came to the wrong section. Every other section gets it; each changes or says the same.
+  if (html === sec.html) for (const p of sec.phrases.filter(p => !p.all && cmd.includes(p.text))) {
+    p.all = true
+    const others = live().filter(o => o !== sec)
+    tele({ event: 'reroute', text: p.text, sections: others.length })
+    p.el.n += others.length
+    for (const o of others) {
+      o.heardAt = sec.heardAt
+      o.pending = (o.pending + ' ' + p.text).trim()
+      o.phrases.push(p)
+      pump(o)
+    }
+  }
   sec.preview = { cmd, html }
-  pump(sec)
+  return pump(sec)
 }
 
 // saidBefore is the speech that built the page: other sections first, this section last.
@@ -544,7 +615,7 @@ async function ask(sec, cmd, full, version) { // version: text for one of severa
   const log = { id: Math.random().toString(36).slice(2, 10), engine: CLAUDE ? 'claude' : 'openrouter', model: MODEL, effort: EFFORT, cmd,
     retry: !!full && !version, version: !!version, look, partial: !!sec.partial, pointer: !!sec.point, base_chars: sec.html.length, wait_ms: Math.round(t0 - heardAt) }
   $('bar').classList.toggle('busy', ++asks > 0)
-  if (sec.point && point && sec.contains(point.el)) point.el.classList.add('glow') // the user points at it: it changes
+  if (sec.point && point?.sec === sec) for (const el of point.els) el.classList.add('glow') // the user points at it: it changes
   try {
     const res = await fetch(CLAUDE ? '/api/claude' : '/api/chat', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -580,10 +651,11 @@ async function ask(sec, cmd, full, version) { // version: text for one of severa
       if (sec.html) for (const [, from] of html.matchAll(/<<<\n([\s\S]+?)\n===/g)) glow(sec, from)
     }
     html = clean(html)
-    Object.assign(log, { first_ms: Math.round(first), stream_ms: Math.round(performance.now() - t0), reply_chars: html.length, reply: html, kind: html.startsWith('<sec') ? 'full' : 'edit' })
+    if (html === 'SAME') html = sec.html // nothing in this section must change
+    Object.assign(log, { first_ms: Math.round(first), stream_ms: Math.round(performance.now() - t0), reply_chars: html.length, reply: html, kind: /^<(sec|style)/.test(html) ? 'full' : 'edit' })
     if (log.kind === 'edit') log.fit = !!patch(sec.html, html)
     // A short reply holds edit blocks. Blocks that do not fit the base get one more request for the full section.
-    if (html && !html.startsWith('<sec')) html = patch(sec.html, html) || (full ? '' : await ask(sec, cmd, true))
+    if (log.kind === 'edit') html = patch(sec.html, html) || (full ? '' : await ask(sec, cmd, true))
     if (!html) throw new Error('the model returned no HTML')
     if (!version) show(sec, html)
     return html
@@ -647,8 +719,9 @@ function glow(sec, from) {
 }
 
 // Pointing: hold ⌘ and move the mouse. Only then the model sees the mouse, so "here" and "this one" work.
-// The trail tells the user that the mouse is seen now. The marked element stays marked until the next speech uses it.
-let point = null // { el, text } - what the user pointed at last
+// The mouse can pass over several elements ("these cards"): the model gets all of them, up to 8.
+// The trail tells the user that the mouse is seen now. The marked elements stay marked until the next speech uses them.
+let point = null // { sec, els, text } - what the user pointed at last
 let pointTimer
 const trail = $('trail'), ink = trail.getContext('2d')
 let dots = []
@@ -660,23 +733,30 @@ document.onmousemove = e => {
   const el = e.target.closest('#canvas > div *')
   if (!el) return
   const sec = el.closest('#canvas > div')
-  if (sec !== cur) select(sec) // pointing is deliberate: speech now goes to this section
-  point?.el.classList.remove('point')
-  el.classList.add('point')
-  const copy = el.cloneNode(true)
-  copy.classList.remove('point', 'glow')
-  if (!copy.classList.length) copy.removeAttribute('class')
+  if (sec !== cur) select(sec)
+  if (point?.sec !== sec) unpoint() // one phrase, one section: the last section wins
+  point ||= { sec, els: [], text: '' }
+  // On the way from one element to the next the mouse crosses the box that holds them. So an element that holds a marked element does not count.
+  const els = [...new Set([...point.els, el])].filter((a, _, all) => !all.some(b => a !== b && a.contains(b))).slice(-8)
+  for (const o of point.els) o.classList.remove('point')
+  for (const o of els) o.classList.add('point')
   const r = sec.getBoundingClientRect()
   const x = Math.round((e.clientX - r.left) / r.width * 100), y = Math.round((e.clientY - r.top) / r.height * 100)
-  point = { el, text: `${copy.outerHTML.slice(0, 300)}\nMouse position: ${x}% from the left, ${y}% from the top of the section.` }
-  const label = el.textContent.trim().slice(0, 18) || el.localName
-  if ($('pt').textContent !== label) $('pt').textContent = label
+  const code = o => {
+    const copy = o.cloneNode(true)
+    for (const c of [copy, ...copy.querySelectorAll('.point, .glow')]) { c.classList.remove('point', 'glow'); if (!c.classList.length) c.removeAttribute('class') }
+    return copy.outerHTML.slice(0, els.length > 1 ? 200 : 300)
+  }
+  point.els = els
+  point.text = (els.length > 1 ? `The mouse passed over ${els.length} elements:\n` : '') + els.map(code).join('\n') + `\nMouse position now: ${x}% from the left, ${y}% from the top of the section.`
+  const name = els.length > 1 ? els.length + ' elements' : el.textContent.trim().slice(0, 18) || el.localName
+  if ($('pt').textContent !== name) $('pt').textContent = name
   clearTimeout(pointTimer)
   pointTimer = setTimeout(unpoint, 8000) // nobody spoke: forget it
 }
 
 function unpoint() {
-  point?.el.classList.remove('point')
+  for (const el of point?.els || []) el.classList.remove('point')
   point = null
   $('pt').textContent = ''
 }
@@ -854,6 +934,7 @@ addEventListener('keydown', e => {
   primed?.then(p => p.rec.stop()) // another key came: this is a shortcut, not speech
   primed = null
   if (e.key !== 'Meta' || on) return
+  if (!e.repeat) unpoint() // a new press starts a new pointing
   primed = prime() // record from the key press, so the first word is kept during the 0.2 s wait
   primed.catch(() => {})
   cmdTimer = setTimeout(() => { cmdTalk = true; toggleMic() }, 200)
@@ -876,7 +957,7 @@ fetch('prompt.txt').then(r => r.text()).then(async t => {
   // ?say=first phrase|second phrase plays phrases without a microphone.
   for (const phrase of (q.get('say') || '').split('|').filter(Boolean)) {
     hear(phrase, true)
-    await new Promise(r => setTimeout(r, 2500))
+    await new Promise(r => setTimeout(r, +(q.get('gap') || 2500))) // ?gap=ms: the time between the phrases
   }
   // ?point=img moves a pretend mouse with ⌘ over that element, to test pointing without hands.
   const target = q.get('point') && document.querySelector('#canvas ' + q.get('point'))
