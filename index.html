@@ -1,0 +1,899 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Verbally</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  /* One motion language for the whole tool: one curve, short times, exits faster than entries, blur on entry. */
+  :root { --ease: cubic-bezier(.22, 1, .36, 1); --pop: cubic-bezier(.34, 1.56, .64, 1);
+          --fg: #707070; --strong: #0a0a0a; --faint: #a3a3a3; --accent: #3232ff; --raised: rgba(255, 255, 255, .92);
+          --lifted: 0 0 0 .5px rgba(0, 0, 0, .1), 0 1px 0 #fff inset, 0 12px 32px -8px rgba(0, 0, 0, .28), 0 2px 6px rgba(0, 0, 0, .06); }
+  body { margin: 0; padding-bottom: 96px; background: #fff; }
+
+  #canvas > div { outline: 1px solid transparent; outline-offset: -1px; transition: outline-color .15s; }
+  #canvas > div.cur:not(:empty) { outline-color: rgba(0, 0, 0, .1); }
+  /* Only the part that changes shows the wait: a new section as a soft block, an edited element with a glow. */
+  #canvas > div.busy:empty { min-height: 160px; background: #f4f4f5; animation: wait 1s ease-in-out infinite alternate; }
+  @keyframes wait { from { opacity: 1; } to { opacity: .45; } }
+  /* White plus accent: one of them shows on any background. */
+  #canvas .point { outline: 1px dashed rgba(99, 102, 241, .7); outline-offset: 2px; box-shadow: 0 0 0 1px rgba(255, 255, 255, .6); }
+  #canvas .glow { outline: 0; border-radius: 6px; animation: glow .8s ease-in-out infinite alternate; }
+  @keyframes glow { from { box-shadow: 0 0 0 2px rgba(255, 255, 255, .35), 0 0 0 4px rgba(99, 102, 241, .25), 0 0 0 rgba(255, 255, 255, 0); }
+                    to { box-shadow: 0 0 0 2px rgba(255, 255, 255, .95), 0 0 0 4px rgba(99, 102, 241, .85), 0 0 32px 6px rgba(255, 255, 255, .45); } }
+  #trail { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 10; }
+  ::view-transition-old(root), ::view-transition-new(root) { animation-duration: .25s; animation-timing-function: var(--ease); }
+
+  /* The bar holds only what the user can use now. An empty page shows the microphone alone.
+     Words come while speech arrives. Undo, redo and clear come when the page has a history. */
+  #bar { position: fixed; left: 50%; bottom: 22px; z-index: 11; translate: -50% 0; max-width: calc(100vw - 32px); box-sizing: border-box;
+         display: flex; align-items: center; height: 52px; padding: 6px; border-radius: 26px; interpolate-size: allow-keywords;
+         background: var(--raised); -webkit-backdrop-filter: blur(20px) saturate(1.8); backdrop-filter: blur(20px) saturate(1.8); box-shadow: var(--lifted);
+         color: var(--fg); font: 500 14px/1 'Public Sans', ui-sans-serif, system-ui, sans-serif; -webkit-font-smoothing: antialiased;
+         animation: bar-in .5s var(--ease) both; }
+  @keyframes bar-in { from { opacity: 0; scale: .9; filter: blur(8px); translate: -50% 12px; } }
+  #bar button { position: relative; flex: none; width: 40px; height: 40px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--fg); cursor: pointer;
+                display: grid; place-items: center; transition: background .15s, color .15s, scale .2s var(--pop), opacity .15s; }
+  #bar button:hover { background: rgba(0, 0, 0, .06); color: var(--strong); }
+  #bar button:active { scale: .92; }
+  #bar button:disabled { opacity: .25; pointer-events: none; }
+  #bar button:focus-visible { outline: 2px solid color-mix(in srgb, var(--accent) 45%, transparent); outline-offset: 1px; }
+  #bar svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* A label comes above a button after a short wait, so a fast mouse does not flash labels. */
+  #bar [data-tip]::after { content: attr(data-tip); position: absolute; left: 50%; bottom: calc(100% + 14px); translate: -50% 4px; padding: 7px 10px; border-radius: 9px;
+                           background: #161616; color: #fff; font-size: 12px; white-space: nowrap; pointer-events: none; opacity: 0; filter: blur(4px);
+                           transition: opacity .12s, translate .12s, filter .12s; }
+  #bar [data-tip]:hover::after { opacity: 1; translate: -50% 0; filter: none; transition: opacity .25s var(--ease) .45s, translate .25s var(--ease) .45s, filter .25s var(--ease) .45s; }
+
+  /* Microphone: the one main control. Off it is a quiet grey disc. On it is red with a slow ring: the sign for "recording". */
+  #mic { background: rgba(0, 0, 0, .05) !important; color: var(--strong) !important; }
+  #mic:hover { background: rgba(0, 0, 0, .1) !important; }
+  #mic.on { background: #ff3b30 !important; color: #fff !important; animation: listen 1.8s var(--ease) infinite; }
+  @keyframes listen { from { box-shadow: 0 0 0 0 rgba(255, 59, 48, .5); } to { box-shadow: 0 0 0 12px rgba(255, 59, 48, 0); } }
+
+  /* Speech: each finished phrase is one chip, so several instructions read as several things.
+     A chip waits in grey, shows a moving light while the model works on it, turns green when its change is on the page, then leaves.
+     Words that the recognizer can still change follow as plain text. Old chips leave to the left under a soft fade. */
+  #say { display: flex; justify-content: flex-end; overflow: hidden; width: 0; max-width: 720px; height: 40px;
+         transition: width .45s var(--ease); }
+  #say.over { -webkit-mask-image: linear-gradient(90deg, transparent, #000 24px); mask-image: linear-gradient(90deg, transparent, #000 24px); }
+  #heard { display: flex; flex: none; align-items: center; gap: 6px; padding: 0 8px 0 12px; white-space: nowrap; pointer-events: none; color: var(--strong); }
+  #heard .ph { flex: none; max-width: 300px; overflow: hidden; text-overflow: ellipsis; padding: 9px 12px; border-radius: 999px; background: rgba(0, 0, 0, .055);
+               animation: word .35s var(--ease) both; transition: opacity .3s var(--ease), filter .3s var(--ease), scale .3s var(--ease), color .25s, background-color .25s; }
+  @keyframes word { from { opacity: 0; filter: blur(5px); translate: 0 4px; } }
+  #bar.busy #heard .ph:not(.done, .err) { background: linear-gradient(90deg, rgba(0, 0, 0, .055) 30%, rgba(0, 0, 0, .14) 50%, rgba(0, 0, 0, .055) 70%) 0 0 / 240px 100%;
+                                          animation: word .35s var(--ease) both, think 1.4s linear infinite; }
+  @keyframes think { from { background-position: 240px 0; } to { background-position: 0 0; } }
+  #heard .ph.done { background: rgba(22, 128, 60, .12); color: #14713a; }
+  #heard .ph.done::before { content: '✓ '; }
+  #heard .ph.look:not(.done)::before { content: '👁 '; }
+  #heard .ph.skip { opacity: .45; text-decoration: line-through; }
+  #heard .ph.err { background: rgba(217, 45, 32, .1); color: #d92d20; }
+  #heard .ph.out { opacity: 0; filter: blur(4px); scale: .9; }
+  #live { flex: none; color: var(--fg); }
+  #live:empty { display: none; }
+
+  /* Picker: the versions of one image that the model offers. It sits above the bar. A version under the mouse shows on the page at once. */
+  #pick { position: fixed; left: 50%; bottom: 88px; z-index: 11; translate: -50% 0; width: max-content; max-width: calc(100vw - 32px); box-sizing: border-box; padding: 12px; border-radius: 22px;
+          background: var(--raised); -webkit-backdrop-filter: blur(20px) saturate(1.8); backdrop-filter: blur(20px) saturate(1.8); box-shadow: var(--lifted);
+          color: var(--fg); font: 500 13px/1 'Public Sans', ui-sans-serif, system-ui, sans-serif; animation: pick-in .35s var(--ease) both; }
+  #pick[hidden] { display: none; }
+  @keyframes pick-in { from { opacity: 0; scale: .94; filter: blur(8px); translate: -50% 10px; } }
+  #pick header { display: flex; justify-content: space-between; align-items: center; padding: 2px 4px 10px; }
+  #pick header b { color: var(--strong); font-weight: 500; }
+  #pick header button { border: 0; background: none; color: var(--fg); font: inherit; cursor: pointer; padding: 4px 6px; border-radius: 8px; transition: background .15s, color .15s; }
+  #pick header button:hover { background: rgba(0, 0, 0, .06); color: var(--strong); }
+  #pick header span { display: flex; gap: 6px; }
+  #pickUse { padding: 7px 12px !important; border-radius: 999px !important; background: var(--strong) !important; color: #fff !important; transition: opacity .15s, scale .2s var(--pop) !important; }
+  #pickUse:disabled { opacity: .25; pointer-events: none; }
+  #pickUse:active { scale: .95; }
+  #pick .grid { display: grid; grid-template-columns: repeat(5, 124px); gap: 8px; }
+  #pick .grid button { position: relative; height: 92px; padding: 0; border: 0; border-radius: 12px; overflow: hidden; background: #ececec; cursor: pointer;
+                       transition: scale .2s var(--pop), box-shadow .15s; animation: word .35s var(--ease) both; }
+  #pick .grid button:hover, #pick.wide .grid button:hover { scale: 1.04; box-shadow: 0 0 0 2px var(--strong); z-index: 1; }
+  #pick .grid button:active { scale: .97; }
+  #pick .grid button.now, #pick.wide .grid button.now { box-shadow: 0 0 0 2.5px var(--accent); }
+  #pick .grid > button > img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  /* A layout version: the real section, drawn small. */
+  #pick.wide .grid { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 176px; }
+  #pick.wide .grid button { height: 110px; background: #fff; box-shadow: 0 0 0 1px rgba(0, 0, 0, .08); }
+  #pick .thumb { width: 176px; height: 110px; overflow: hidden; text-align: left; }
+  #pick .thumb > div { width: 1280px; transform: scale(.1375); transform-origin: 0 0; pointer-events: none; }
+  #pick .grid i { position: absolute; left: 6px; top: 6px; min-width: 18px; padding: 3px 0; border-radius: 9px; background: rgba(0, 0, 0, .55); color: #fff; font-style: normal; font-size: 11px; text-align: center; }
+  @media (max-width: 720px) { #pick .grid { grid-template-columns: repeat(3, 1fr); } }
+
+  /* Pointer chip: pops in with a small bounce. */
+  #pt { flex: none; max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin: 0 4px 0 8px; padding: 8px 11px; border-radius: 999px;
+        background: color-mix(in srgb, var(--accent) 9%, transparent); color: var(--accent); font-size: 12px;
+        animation: chip .35s var(--pop) both; }
+  #pt:empty { display: none; }
+  @keyframes chip { from { opacity: 0; scale: .7; filter: blur(4px); } }
+
+  /* History tools: closed while the page has no history. The buttons come in after the bar has made room. */
+  #tools { display: flex; align-items: center; width: 0; opacity: 0; visibility: hidden; scale: .8; filter: blur(4px);
+           transition: width .45s var(--ease), opacity .15s, scale .15s, filter .15s, visibility 0s .45s; }
+  #tools.open { width: auto; opacity: 1; visibility: visible; scale: 1; filter: none;
+                transition: width .45s var(--ease), opacity .3s var(--ease) .15s, scale .35s var(--pop) .15s, filter .3s var(--ease) .15s; }
+  #tools .sep { flex: none; width: 1px; height: 20px; margin: 0 6px 0 8px; background: rgba(0, 0, 0, .09); }
+  #clear:hover { background: rgba(217, 45, 32, .1) !important; color: #d92d20 !important; }
+
+  @media (prefers-reduced-motion: reduce) {
+    #bar, #heard .ph, #pt, #canvas > div.busy:empty, #canvas .glow, #mic.on, #bar.busy #heard .ph:not(.done, .err) { animation: none; }
+    #canvas .glow { box-shadow: 0 0 0 2px rgba(255, 255, 255, .95), 0 0 0 4px rgba(99, 102, 241, .85); }
+    #say, #tools, #tools.open, #bar button { transition: none; }
+  }
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@500&display=swap">
+
+<main id="canvas"></main>
+<canvas id="trail"></canvas>
+
+<div id="pick" hidden><header><b id="pickTitle">Pick one</b><span><button id="pickKeep">Cancel</button><button id="pickUse" disabled>✓ Use this</button></span></header><div class="grid"></div></div>
+
+<div id="bar">
+  <button id="mic" data-tip="Talk · hold ⌘ or Space" aria-label="Microphone"><svg viewBox="0 0 18 18"><rect x="6.25" y="1.75" width="5.5" height="9" rx="2.75"/><path d="M3.5 8.5a5.5 5.5 0 0 0 11 0M9 14v2.25"/></svg></button>
+  <div id="say"><div id="heard" aria-live="polite"><span id="live"></span></div></div>
+  <span id="pt" title="The model sees this element"></span>
+  <div id="tools">
+    <span class="sep"></span>
+    <button id="back" data-tip="Undo · ⌘Z" aria-label="Undo" disabled><svg viewBox="0 0 18 18"><path d="M6.5 4 3.5 7l3 3"/><path d="M3.5 7h7a4 4 0 0 1 0 8H7.5"/></svg></button>
+    <button id="fwd" data-tip="Redo · ⇧⌘Z" aria-label="Redo" disabled><svg viewBox="0 0 18 18"><path d="m11.5 4 3 3-3 3"/><path d="M14.5 7h-7a4 4 0 0 0 0 8h3"/></svg></button>
+    <button id="clear" data-tip="Clear the page" aria-label="Clear the page" disabled><svg viewBox="0 0 18 18"><path d="M3.5 5h11M7 5V3.25h4V5M5 5l.6 9.75h6.8L13 5M7.6 8v4M10.4 8v4"/></svg></button>
+  </div>
+</div>
+
+<script>
+const q = new URLSearchParams(location.search)
+// Calibration without a code edit: ?engine= ?model= ?provider= ?effort=
+// The default engine is the local Claude Code CLI: best HTML, 3-5 s per request, no OpenRouter cost.
+// ?engine=openrouter uses a fast model through OpenRouter: about 0.5 s per request, weaker HTML.
+const CLAUDE = q.get('engine') !== 'openrouter'
+const MODEL = q.get('model') || (CLAUDE ? 'claude-opus-5-5' : 'openai/gpt-oss-120b')
+// The default provider belongs to the default model. Another model gets any provider unless ?provider= names one.
+const PROVIDER = q.get('provider') || (q.get('model') ? '' : 'cerebras')
+// Measured with Opus 5.5 on one hero section: medium thinks 10 s before the first token (22 s in all), low starts after 1.7 s (8-10 s in all).
+const EFFORT = q.get('effort') || 'low'
+// Claude needs 2-3 s for any request, so a request for a half-heard phrase ("Uh", "But") only blocks the real one.
+// With Claude the model gets a phrase when the recognizer says it is complete. ?partial=1 brings back requests on half-heard speech.
+const WAIT = CLAUDE && !q.get('partial')
+// Jev, a fast yes/no model, reads each phrase before Claude. It drops filler ("okay", "uh") and tells when Claude must see the page ("this is ugly").
+// ?nojev=1 switches it off.
+const JEV = CLAUDE && !q.get('nojev')
+// The page gives its window a name of its own, so the server can take a screenshot of the right window.
+document.title = 'Verbally ' + Math.random().toString(36).slice(2, 6)
+const DONE = /section\s+(is\s+)?(done|ready)|next\s+section|секци[яию]\s+готов\S*|следующая\s+секция/i
+
+const $ = id => document.getElementById(id)
+// tele adds one event to telemetry.jsonl, so a lost phrase or a silent change of recognizer can be found later.
+const tele = v => fetch('/api/log', { method: 'POST', body: JSON.stringify(v), keepalive: true }).catch(() => {})
+
+// The bar shows speech as it is used: one chip per finished phrase, then the words that can still change.
+// fit gives the bar the width of its content, so it grows and shrinks with one smooth move.
+function fit() {
+  const empty = !$('heard').querySelector('.ph') && !$('live').textContent
+  $('say').style.width = empty ? '0px' : $('heard').offsetWidth + 'px'
+  $('say').classList.toggle('over', $('heard').offsetWidth > 720)
+}
+new ResizeObserver(fit).observe($('heard')) // a late font or a check mark changes the width
+function chip(text, kind) {
+  const el = Object.assign(document.createElement('span'), { className: 'ph ' + (kind || ''), textContent: text })
+  $('live').before(el)
+  fit()
+  return el
+}
+function leave(el, after) {
+  setTimeout(() => el.classList.add('out'), after)
+  setTimeout(() => { el.remove(); fit() }, after + 300)
+}
+// keepTodo keeps the phrases that Claude has not finished, so a reload does not lose them: the page says them again.
+const keepTodo = () => PAGE && localStorage.setItem('verbally.' + PAGE + '.todo',
+  JSON.stringify([...$('canvas').children].flatMap((sec, i) => [...sec.phrases.map(p => p.text), ...sec.queued].map(text => ({ i, text })))))
+// settle marks the phrases that are on the page now as done. `pending` holds the phrases that still wait.
+function settle(sec) {
+  while (sec.phrases.length && !sec.pending.endsWith(sec.phrases.map(p => p.text).join(' '))) {
+    const { el } = sec.phrases.shift()
+    el.classList.add('done')
+    fit() // the check mark makes the chip wider
+    leave(el, 1400)
+  }
+}
+// triage asks Jev about a phrase. The answer is kept, so a question that was asked while the user still spoke costs no time at the end of the phrase.
+const triaged = new Map()
+let triageTimer
+function triage(text) {
+  if (!JEV) return Promise.resolve({})
+  const key = text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim() // the final text differs from the half-heard text in punctuation only
+  if (!triaged.has(key)) triaged.set(key, fetch('/api/triage', { method: 'POST', body: JSON.stringify({ text }) }).then(r => r.json()).catch(() => ({})))
+  return triaged.get(key)
+}
+const note = text => leave(chip(text, 'err'), 5000) // a problem the user must know about
+let system = ''
+let cur // the section that speech changes now
+
+// A section holds four texts:
+//   html    - the base: HTML that holds only final speech
+//   said    - final speech that is already in html
+//   pending - final speech that is not in html yet
+//   partial - speech that the recognizer can still change
+function newSection() {
+  const sec = document.createElement('div')
+  Object.assign(sec, { html: '', said: '', pending: '', partial: '', phrases: [], queued: [], gate: Promise.resolve(), look: false, busy: false, preview: null, shown: '', point: '', heardAt: 0 })
+  $('canvas').append(sec)
+  select(sec)
+}
+
+// The page lives in this browser's storage, so a reload keeps it. Only final speech is saved, never a preview.
+// ?page=name keeps a separate page. A ?say= test run without a page name saves nothing, so it cannot overwrite real work.
+const PAGE = q.get('page') || (q.get('say') ? '' : 'main')
+// history holds every saved state of the page, like the back and forward list of a browser tab.
+// save adds a state after the current one and drops the states that were undone.
+// ponytail: the last 60 states in browser storage. Move it to the server when pages get heavy.
+let history = [], at = -1
+function save() {
+  const page = [...$('canvas').children].filter(sec => sec.html).map(sec => ({ html: sec.html, said: sec.said }))
+  const state = JSON.stringify(page)
+  if (state === history[at]) return
+  history = [...history.slice(0, at + 1), state].slice(-60)
+  at = history.length - 1
+  store()
+}
+
+function store() {
+  $('back').disabled = at <= 0
+  $('fwd').disabled = at >= history.length - 1
+  $('clear').disabled = history[at] === '[]'
+  $('tools').classList.toggle('open', history.length > 1)
+  if (!PAGE) return
+  keepTodo()
+  for (;;) {
+    try { localStorage.setItem('verbally.' + PAGE + '.history', JSON.stringify({ history, at })); break } catch (e) {
+      // Browser storage is full (about 5 MB). Drop the oldest half of the history; the current page always stays.
+      if (history.length < 2) { note('The page is too large to save in this browser.'); break }
+      const drop = Math.min(at, Math.ceil(history.length / 2))
+      if (drop) history = history.slice(drop), at -= drop
+      else history = history.slice(0, Math.ceil(history.length / 2)) // the current page is the oldest state: drop redo states
+
+    }
+  }
+  // The server keeps a copy in pages/, so the page can be reviewed and compared with the telemetry.
+  fetch('/api/page?name=' + encodeURIComponent(PAGE), { method: 'POST', body: history[at], keepalive: true }).catch(() => {})
+}
+
+// travel moves through the history: -1 is undo, +1 is redo.
+function travel(step) {
+  if (!history[at + step]) return
+  at += step
+  const draw = () => paint(JSON.parse(history[at]))
+  document.startViewTransition ? document.startViewTransition(draw) : draw()
+  store()
+}
+
+function paint(page) {
+  $('canvas').replaceChildren()
+  cur = null
+  if (picking) { // undo or clear while a layout choice was open: the versions belonged to the old page
+    picking = null
+    $('pick').hidden = true
+    localStorage.removeItem('verbally.' + PAGE + '.versions')
+  }
+  $('heard').querySelectorAll('.ph:not(.err)').forEach(el => el.remove()) // their sections are gone
+  $('live').textContent = ''
+  fit()
+  for (const { html, said } of page) {
+    newSection()
+    Object.assign(cur, { html, said })
+    show(cur, html)
+  }
+  if (!cur) newSection()
+  offer()
+}
+
+async function restore() {
+  const saved = JSON.parse(PAGE && localStorage.getItem('verbally.' + PAGE + '.history') || 'null')
+  const todo = JSON.parse(PAGE && localStorage.getItem('verbally.' + PAGE + '.todo') || '[]') // read it before store() writes the empty list
+  // Browser storage is empty (cleared, or another browser): take the copy of the page that the server keeps in pages/.
+  const copy = !saved && PAGE && await fetch('pages/' + encodeURIComponent(PAGE) + '.json').then(r => r.ok ? r.text() : '').catch(() => '')
+  if (saved) ({ history, at } = saved)
+  else history = ['[]', ...(copy && copy !== '[]' ? [copy] : [])], at = history.length - 1
+  paint(JSON.parse(history[at]))
+  store()
+  // The user reloaded the page before the choice of a layout: show the built versions again.
+  const v = JSON.parse(PAGE && localStorage.getItem('verbally.' + PAGE + '.versions') || 'null')
+  const sec = v && $('canvas').children[v.index]
+  if (sec) versions(sec, v.cmd, null, { n: v.n, built: v.built.filter(b => b.html) })
+  // Phrases that Claude had not finished before the reload: say them again, each to its section.
+  for (const { i, text } of todo) {
+    select($('canvas').children[i] || $('canvas').lastChild)
+    hear(text, true)
+  }
+}
+
+function select(sec) {
+  cur?.classList.remove('cur')
+  cur = sec
+  cur.classList.add('cur')
+}
+
+// hear takes text from any source: microphone partial, microphone final, keyboard.
+function hear(text, final) {
+  const sec = cur
+  const m = text.match(DONE)
+  const tidy = t => t.replace(/^[\s.,;:!?-]+/, '').trim() // the recognizer leaves punctuation next to the marker
+  const cmd = tidy(m ? text.slice(0, m.index) : text)
+  if (cmd) sec.heardAt = performance.now()
+  if (point && sec.contains(point.el)) sec.point = point.text // the user pointed with ⌘ before or during this speech
+  $('live').textContent = final ? '' : cmd
+  fit()
+  if (!final) {
+    if (!WAIT) { sec.partial = cmd; pump(sec) }
+    // The user made a short stop: ask Jev now. The end of the phrase comes 0.5 s later and finds the answer ready.
+    clearTimeout(triageTimer)
+    if (cmd) triageTimer = setTimeout(() => triage(cmd), 200)
+    return
+  }
+  sec.partial = ''
+  const el = cmd && chip(cmd)
+  if (cmd) tele({ event: 'heard', text: cmd })
+  // gate keeps the phrases of a section in the order of speech while Jev answers.
+  sec.gate = sec.gate.then(() => cmd ? triage(cmd) : {}).then(t => {
+    if (t.filler) { // nothing to act on: Claude never gets it
+      el.classList.add('skip')
+      leave(el, 900)
+      tele({ event: 'filler', text: cmd })
+    } else if (cmd && t.versions) {
+      sec.queued.push(cmd) // kept for a reload until the layout job starts and keeps itself
+      keepTodo()
+      versions(sec, cmd, el)
+    }
+    else if (cmd) {
+      if (t.look) { sec.look = true; el.classList.add('look') }
+      sec.pending = (sec.pending + ' ' + cmd).trim()
+      sec.phrases.push({ text: cmd, el })
+      keepTodo()
+      pump(sec)
+    }
+    if (!m) return
+    if (sec.html || sec.pending) newSection() // a second "section done" must not add an empty section
+    const rest = tidy(text.slice(m.index + m[0].length)) // words after the marker belong to the next section
+    if (rest) hear(rest, true)
+  })
+}
+
+// The picker shows versions to choose from, in a strip above the bar.
+// A click on a version shows it on the page and keeps the picker open, so the user can look, scroll and compare.
+// "Use this" keeps the shown version. "Cancel" brings the page back as it was. Keys: arrows move, Enter uses, Esc cancels.
+// It serves two cases: the images that the model offers for one <img> (data-choices), and layouts of a section built side by side.
+let picking = null // the section whose layouts the picker shows now
+let chosen = null // keeps the version that the page shows now
+function pickOpen(title, wide, cancel) {
+  $('pick').hidden = false
+  $('pick').classList.toggle('wide', wide)
+  $('pickTitle').textContent = title
+  $('pick').querySelector('.grid').replaceChildren()
+  chosen = null
+  $('pickUse').disabled = true
+  $('pickUse').onclick = () => chosen?.()
+  $('pickKeep').onclick = cancel
+}
+function pickAdd(thumb, view, keep, now) {
+  const grid = $('pick').querySelector('.grid'), b = document.createElement('button')
+  b.className = now ? 'now' : ''
+  b.append(thumb, Object.assign(document.createElement('i'), { textContent: grid.children.length + 1 }))
+  b.onclick = () => {
+    for (const o of grid.children) o.classList.toggle('now', o === b)
+    chosen = keep
+    $('pickUse').disabled = false
+    view()
+  }
+  grid.append(b)
+}
+addEventListener('keydown', e => {
+  if ($('pick').hidden) return
+  const all = [...$('pick').querySelectorAll('.grid button')], at = all.findIndex(b => b.classList.contains('now'))
+  if (e.key === 'Enter') $('pickUse').click()
+  else if (e.key === 'Escape') $('pickKeep').click()
+  else if (e.key === 'ArrowRight') all[Math.min(all.length - 1, at + 1)]?.click()
+  else if (e.key === 'ArrowLeft') all[Math.max(0, at - 1)]?.click()
+  else return
+  e.preventDefault()
+})
+
+// offer shows the picker when a saved section holds an image with versions to choose from (data-choices).
+// "Use this" keeps a version: the image gets that address and loses its choices.
+// The user can also choose by voice ("the third one"): the model sees the choices in the HTML.
+function offer() {
+  if (picking) return
+  const sec = [...$('canvas').children].find(s => s.html && /<img\b[^>]*\bdata-choices="/.test(s.html))
+  $('pick').hidden = !sec
+  if (!sec) return
+  const img = () => sec.querySelector('img[data-choices]')
+  const now = img().getAttribute('src')
+  const options = [...new Set([now, ...img().dataset.choices.split('|').map(o => o.trim()).filter(Boolean)])]
+  const keep = src => {
+    sec.html = sec.html.replace(/<img\b[^>]*\bdata-choices="[^"]*"[^>]*>/, tag =>
+      tag.replace(/\sdata-choices="[^"]*"/, '').replace(/\bsrc="[^"]*"/, () => 'src="' + src.replace(/&/g, '&amp;') + '"'))
+    show(sec, sec.html)
+    save()
+    tele({ event: 'picked', picked: src, of: options.length })
+    offer() // one more image can wait for a choice
+  }
+  pickOpen('Pick a photo', false, () => keep(now))
+  for (const src of options) pickAdd(Object.assign(new Image(), { src, alt: '' }), () => img()?.setAttribute('src', src), () => keep(src), src === now)
+  img().scrollIntoView({ block: 'center', behavior: 'smooth' })
+}
+
+// versions builds several layouts of one section at the same time, each from its own layout idea, and lets the user pick.
+// The requests run side by side, so five layouts need the time of the slowest one, not the sum.
+// ponytail: fixed layout ideas, and the versions are lost on a reload. Let the model name the ideas when the picks look alike.
+const IDEAS = [
+  'type only: the words carry the section, very large, no image or a very small one',
+  'full-bleed image or colour field with the text set over it',
+  'asymmetric split: a narrow column and a wide one, with an offset that breaks the grid',
+  'a strict modular grid of unequal cells, like a poster or a timetable',
+  'editorial, like a magazine spread: columns, a pull quote or a caption, fine rules',
+  'centred and quiet: one small block in a lot of empty space',
+]
+function howMany(text) {
+  const words = { two: 2, three: 3, four: 4, five: 5, six: 6, два: 2, три: 3, четыре: 4, пять: 5, шесть: 6 }
+  const m = text.toLowerCase().match(/\d+|two|three|four|five|six|два|три|четыре|пять|шесть/)
+  return Math.min(IDEAS.length, Math.max(2, m ? +m[0] || words[m[0]] : 4))
+}
+// layouts opens the picker for one section and returns a function that adds a built version to it.
+// The built versions are kept in browser storage until the user decides, so a reload brings the picker back.
+function layouts(sec, cmd, n, built, el) {
+  const key = 'verbally.' + PAGE + '.versions'
+  const keepAll = () => PAGE && localStorage.setItem(key, JSON.stringify({ index: [...$('canvas').children].indexOf(sec), cmd, n, built }))
+  sec.busy = true // speech that comes now waits and changes the version that the user picks
+  picking = sec
+  const end = html => {
+    if (html) {
+      sec.html = html
+      sec.said = (sec.said + ' ' + cmd).trim()
+    }
+    show(sec, sec.html)
+    save()
+    tele({ event: 'picked_layout', picked: !!html, of: built.length })
+    if (el) el.classList.add('done'), leave(el, 1400)
+    localStorage.removeItem(key)
+    sec.busy = false
+    picking = null
+    $('pick').hidden = true
+    offer()
+    pump(sec)
+  }
+  const title = () => $('pickTitle').textContent = built.length < n ? `Building ${n} layouts… ${built.length} ready` : 'Pick a layout'
+  const add = (v, old) => { // v: { k: the number of its layout idea, html }
+    if (picking !== sec) return
+    if (!old) built.push(v), keepAll()
+    const thumb = Object.assign(document.createElement('div'), { className: 'thumb' })
+    show(thumb.appendChild(document.createElement('div')), v.html)
+    pickAdd(thumb, () => show(sec, v.html), () => end(v.html))
+    title()
+  }
+  pickOpen('', true, () => end(''))
+  title()
+  keepAll() // the job is kept from its start, so a reload in the first seconds builds the versions again
+  keepTodo()
+  for (const v of built) add(v, true)
+  return { add, end }
+}
+let leaving = false
+addEventListener('beforeunload', () => leaving = true)
+addEventListener('pagehide', () => leaving = true)
+// old: a job from before a reload. Its built versions come back, and the versions that were not ready are built now.
+async function versions(sec, cmd, el, old) {
+  if (!old) while (sec.busy || picking) await new Promise(r => setTimeout(r, 200)) // a change in flight ends first: the versions start from its result
+  const n = old ? old.n : howMany(cmd), built = old ? old.built : []
+  sec.queued = sec.queued.filter(t => t !== cmd)
+  const { add, end } = layouts(sec, cmd, n, built, el)
+  const have = new Set(built.map(v => v.k))
+  await Promise.all(IDEAS.slice(0, n).map(async (idea, k) => {
+    if (have.has(k)) return
+    const html = await ask(sec, cmd, true, `\n\nThe speaker will choose from ${n} versions of this section. This is version ${k + 1}. Its layout idea: ${idea}. Keep the subject, the content and the direction of the page. Make the layout boldly different from the current one.`)
+    if (html) add({ k, html })
+  }))
+  if (leaving) return // the page reloads and its requests break: the job stays in storage and goes on after the reload
+  if (picking === sec && !built.length) end('') // every request failed; the error is in the bar
+  else if (picking === sec) $('pickTitle').textContent = 'Pick a layout'
+}
+
+// pump keeps one request per section in flight. A request is never cancelled:
+// with cancel, steady speech restarts the request on every word and the screen stays empty until a pause.
+// When a request ends, pump starts the next one with all speech that arrived meanwhile.
+async function pump(sec) {
+  if (sec.busy) return
+  const p = sec.preview
+  // The shown HTML was built from final speech only: it becomes the new base.
+  if (p && sec.pending.startsWith(p.cmd) && !/\S/.test(sec.pending[p.cmd.length] || ' ')) {
+    sec.html = p.html
+    sec.said = (sec.said + ' ' + p.cmd).trim()
+    sec.pending = sec.pending.slice(p.cmd.length).trim()
+    sec.preview = null
+    sec.point = '' // the next speech needs a fresh pointer
+    settle(sec)
+    unpoint()
+    save()
+    offer()
+    return pump(sec)
+  }
+  const cmd = (sec.pending + ' ' + sec.partial).trim()
+  if (!cmd || p?.cmd === cmd) return // nothing new: the final text often equals the last partial text
+  sec.busy = true
+  sec.classList.add('busy')
+  const html = await ask(sec, cmd)
+  sec.busy = false
+  sec.classList.remove('busy')
+  if (!html) return // the error is on screen; the next speech tries again
+  sec.preview = { cmd, html }
+  pump(sec)
+}
+
+// saidBefore is the speech that built the page: other sections first, this section last.
+// So a wish that the user spoke for one section ("artwork, not a real photo") holds for the next one too.
+// ponytail: the last 4000 characters. Keep a summary of standing wishes when pages get long.
+const saidBefore = sec => [...$('canvas').children].filter(o => o !== sec).concat(sec).map(o => o.said).filter(Boolean).join('\n').slice(-4000)
+
+// ask sends the base HTML and the new speech to the model, shows the answer and returns it. It returns '' after an error.
+async function ask(sec, cmd, full, version) { // version: text for one of several layouts; such a request draws nothing on the page
+  const t0 = performance.now(), heardAt = sec.heardAt
+  const look = sec.look // Jev said that this speech judges the look: Claude gets a screenshot
+  sec.look = false
+  let html = '', first = 0
+  // One telemetry line per request. `wait` and `total` count from the last heard word: that is the delay the user feels.
+  const log = { id: Math.random().toString(36).slice(2, 10), engine: CLAUDE ? 'claude' : 'openrouter', model: MODEL, effort: EFFORT, cmd,
+    retry: !!full && !version, version: !!version, look, partial: !!sec.partial, pointer: !!sec.point, base_chars: sec.html.length, wait_ms: Math.round(t0 - heardAt) }
+  $('bar').classList.toggle('busy', ++asks > 0)
+  if (sec.point && point && sec.contains(point.el)) point.el.classList.add('glow') // the user points at it: it changes
+  try {
+    const res = await fetch(CLAUDE ? '/api/claude' : '/api/chat', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: log.id, model: MODEL, effort: EFFORT, look, window: document.title, stream: true, temperature: 0, reasoning: { effort: EFFORT },
+        ...(PROVIDER && { provider: { only: [PROVIDER] } }),
+        messages: [
+          { role: 'system', content: system },
+          { role: 'user', content: `Page font: ${pageFont || 'none'}\n\nOther sections of the page:\n${[...$('canvas').children].filter(o => o !== sec && o.html).map(o => o.html).join('\n') || '(none)'}\n\nCurrent HTML:\n${sec.html || '(empty)'}\n\nSaid before:\n${saidBefore(sec) || '(nothing)'}\n\nPointer:\n${sec.point || '(none)'}\n\nNew speech:\n${cmd}${full ? '\n\nReply with the full section.' : ''}${version || ''}` },
+        ],
+      }),
+    })
+    if (!res.ok) throw new Error(res.status + ' ' + (await res.text()).slice(0, 200))
+    const reader = res.body.pipeThrough(new TextDecoderStream()).getReader()
+    let buf = ''
+    for (;;) {
+      const { value, done } = await reader.read()
+      if (done) break
+      buf += value
+      const lines = buf.split('\n')
+      buf = lines.pop()
+      for (const line of lines) {
+        if (!line.startsWith('data: {')) continue
+        const d = JSON.parse(line.slice(6))
+        if (d.reset) html = '' // the model used a tool: the text before it was not the reply
+        html += d.choices?.[0]?.delta?.content || ''
+      }
+      if (html && !first) first = performance.now() - t0
+      // A new section grows token by token. An edit swaps once at the end, so the section does not collapse and regrow.
+      if (version) continue
+      if (!sec.html && html.trimStart().startsWith('<')) show(sec, html.slice(0, html.lastIndexOf('>') + 1))
+      // An edit names the text it replaces first. The element with that text glows until the edit lands.
+      if (sec.html) for (const [, from] of html.matchAll(/<<<\n([\s\S]+?)\n===/g)) glow(sec, from)
+    }
+    html = clean(html)
+    Object.assign(log, { first_ms: Math.round(first), stream_ms: Math.round(performance.now() - t0), reply_chars: html.length, reply: html, kind: html.startsWith('<sec') ? 'full' : 'edit' })
+    if (log.kind === 'edit') log.fit = !!patch(sec.html, html)
+    // A short reply holds edit blocks. Blocks that do not fit the base get one more request for the full section.
+    if (html && !html.startsWith('<sec')) html = patch(sec.html, html) || (full ? '' : await ask(sec, cmd, true))
+    if (!html) throw new Error('the model returned no HTML')
+    if (!version) show(sec, html)
+    return html
+  } catch (e) {
+    log.error = e.message
+    note(e.message)
+    return ''
+  } finally {
+    $('bar').classList.toggle('busy', --asks > 0)
+    log.done_ms = Math.round(performance.now() - t0)
+    log.total_ms = Math.round(performance.now() - heardAt)
+    fetch('/api/log', { method: 'POST', body: JSON.stringify(log), keepalive: true }).catch(() => {})
+  }
+}
+let asks = 0 // requests in flight
+
+
+// patch applies edit blocks (<<< old === new >>>) to the base HTML. An edit of one class is 10 tokens, not the whole section.
+// It returns '' when the reply has no block or a block does not match the base exactly once.
+function patch(base, reply) {
+  let n = 0
+  for (const [, from, to] of reply.matchAll(/<<<\n([\s\S]*?)\n===\n([\s\S]*?)\n?>>>/g)) {
+    if (!from || base.split(from).length !== 2) return ''
+    base = base.replace(from, () => to)
+    n++
+  }
+  return n ? base : ''
+}
+console.assert(patch('<h1 class="a">x</h1><img>', '<<<\nclass="a"\n===\nclass="b"\n>>>\n<<<\n<img>\n===\n>>>') === '<h1 class="b">x</h1>', 'patch')
+console.assert(patch('<p><p>', '<<<\n<p>\n===\n<b>\n>>>') === '', 'patch must refuse a text that occurs twice')
+
+const clean = html => html.replace(/^\s*```(html)?/, '').replace(/```\s*$/, '').trim()
+
+// ponytail: innerHTML trusts the model output. Enough for a local prototype; sanitize before other people use it.
+function show(sec, html) {
+  sec.shown = sec.innerHTML = clean(html)
+  for (const [, font] of html.matchAll(/font-family:\s*['"]([A-Za-z0-9 ]+)['"]/g)) loadFont(font.trim())
+}
+
+const fonts = new Set()
+let pageFont = '' // the font of the newest section; later sections keep it
+function loadFont(name) {
+  pageFont = name
+  if (fonts.has(name)) return
+  fonts.add(name)
+  const link = document.createElement('link')
+  link.rel = 'stylesheet'
+  const url = 'https://fonts.googleapis.com/css2?display=swap&family=' + name.replace(/ /g, '+')
+  link.href = url + ':wght@400;500;700;800;900'
+  link.onerror = () => { link.onerror = null; link.href = url } // a font without these weights fails as a whole: load its regular weight
+  document.head.append(link)
+}
+
+// glow marks the element that holds the text `from` of the base HTML.
+// The n-th opening tag in the HTML text is the n-th element of the section, so a text position gives an element.
+function glow(sec, from) {
+  const i = sec.html.indexOf(from)
+  if (i < 0 || sec.shown !== sec.html) return // the screen shows a preview, not the base: positions do not match
+  const n = [...sec.html.slice(0, i + 2).matchAll(/<[a-zA-Z]/g)].length
+  sec.querySelectorAll('*')[n - 1]?.classList.add('glow')
+}
+
+// Pointing: hold ⌘ and move the mouse. Only then the model sees the mouse, so "here" and "this one" work.
+// The trail tells the user that the mouse is seen now. The marked element stays marked until the next speech uses it.
+let point = null // { el, text } - what the user pointed at last
+let pointTimer
+const trail = $('trail'), ink = trail.getContext('2d')
+let dots = []
+
+document.onmousemove = e => {
+  if (!e.metaKey) return
+  if (!dots.length) requestAnimationFrame(drawTrail)
+  dots.push({ x: e.clientX, y: e.clientY, t: performance.now() })
+  const el = e.target.closest('#canvas > div *')
+  if (!el) return
+  const sec = el.closest('#canvas > div')
+  if (sec !== cur) select(sec) // pointing is deliberate: speech now goes to this section
+  point?.el.classList.remove('point')
+  el.classList.add('point')
+  const copy = el.cloneNode(true)
+  copy.classList.remove('point', 'glow')
+  if (!copy.classList.length) copy.removeAttribute('class')
+  const r = sec.getBoundingClientRect()
+  const x = Math.round((e.clientX - r.left) / r.width * 100), y = Math.round((e.clientY - r.top) / r.height * 100)
+  point = { el, text: `${copy.outerHTML.slice(0, 300)}\nMouse position: ${x}% from the left, ${y}% from the top of the section.` }
+  const label = el.textContent.trim().slice(0, 18) || el.localName
+  if ($('pt').textContent !== label) $('pt').textContent = label
+  clearTimeout(pointTimer)
+  pointTimer = setTimeout(unpoint, 8000) // nobody spoke: forget it
+}
+
+function unpoint() {
+  point?.el.classList.remove('point')
+  point = null
+  $('pt').textContent = ''
+}
+
+function drawTrail() {
+  const now = performance.now(), dpr = devicePixelRatio
+  if (trail.width !== innerWidth * dpr) { trail.width = innerWidth * dpr; trail.height = innerHeight * dpr }
+  dots = dots.filter(d => now - d.t < 600)
+  ink.setTransform(dpr, 0, 0, dpr, 0, 0)
+  ink.clearRect(0, 0, innerWidth, innerHeight)
+  ink.lineCap = 'round'
+  for (const [colour, width] of [['255,255,255', 9], ['99,102,241', 5]]) { // white under indigo: visible on any background
+    for (let i = 1; i < dots.length; i++) {
+      const age = 1 - (now - dots[i].t) / 600
+      ink.strokeStyle = `rgba(${colour},${age * .9})`
+      ink.lineWidth = width * age
+      ink.beginPath()
+      ink.moveTo(dots[i - 1].x, dots[i - 1].y)
+      ink.lineTo(dots[i].x, dots[i].y)
+      ink.stroke()
+    }
+  }
+  if (dots.length) requestAnimationFrame(drawTrail)
+}
+
+// Microphone. Soniox gives fast partial text and marks the end of speech. Without a working Soniox key the browser recognizer takes over.
+const LANG = q.get('lang') || 'en-US' // for the browser recognizer; Soniox hears English and Russian
+let on = false, stopMic = () => {}
+async function toggleMic() {
+  on = !on
+  $('mic').classList.toggle('on', on)
+  if (!on) return stopMic()
+  const t0 = performance.now()
+  const stop = await soniox().then(s => (tele({ event: 'mic', recognizer: 'soniox', start_ms: Math.round(performance.now() - t0) }), s))
+    .catch(e => { tele({ event: 'mic', recognizer: 'browser', why: e.message }); return webSpeech() })
+  if (on) stopMic = stop
+  else stop() // the key went up while the microphone started
+}
+
+// The first word must not be lost, so nothing may wait between the key press and the recording:
+// - the microphone stream stays open after its first use;
+// - prime starts the recording at the key press and keeps the audio until the Soniox socket is open;
+// - a short-lived Soniox key is fetched before it is needed.
+// The last word must not be lost either: stop sends the end of the audio and waits for the words that are still on their way.
+// ponytail: the browser shows its microphone sign as long as the tab is open. Close the stream after idle time if that disturbs.
+let micStream, primed, nextKey
+async function prime() {
+  micStream ||= await navigator.mediaDevices.getUserMedia({ audio: true })
+  const rec = new MediaRecorder(micStream), chunks = []
+  rec.ondataavailable = e => chunks.push(e.data)
+  rec.start(100)
+  return { rec, chunks }
+}
+function fetchKey() {
+  const key = fetch('/api/soniox').then(r => r.ok ? r.json() : Promise.reject(new Error('Soniox ' + r.status))).then(d => d.api_key)
+  key.catch(() => {})
+  return { at: performance.now(), key }
+}
+nextKey = fetchKey()
+function sonioxKey() { // a key lives 10 minutes: use one that is at most 8 minutes old, and fetch the next one at once
+  const k = nextKey && performance.now() - nextKey.at < 8 * 60e3 ? nextKey : fetchKey()
+  nextKey = fetchKey()
+  return k.key
+}
+async function soniox() {
+  const take = primed || prime()
+  primed = null
+  let api_key
+  try { api_key = await sonioxKey() } catch (e) { take.then(p => p.rec.stop()); throw e }
+  const { rec, chunks } = await take
+  const ws = new WebSocket('wss://stt-rt.soniox.com/transcribe-websocket')
+  let final = '', last = '' // final words of the open phrase; all words of the open phrase
+  let dbg = { event: 'micdbg', sent: 0, msgs: 0, pre: 0, text: '' }
+  const close = () => {
+    if (dbg) tele(dbg), dbg = null
+    ws.close()
+    if (last.trim()) hear(last, true) // the microphone went off in the middle of a phrase: the phrase is complete
+    last = ''
+  }
+  const stop = () => {
+    if (rec.state === 'inactive') return close()
+    rec.onstop = () => ws.readyState === 1 ? ws.send('') : close() // an empty frame tells Soniox that the audio is complete
+    rec.stop()
+    setTimeout(close, 2000) // Soniox did not answer: use the words that came
+  }
+  ws.onopen = () => {
+    ws.send(JSON.stringify({ api_key, model: 'stt-rt-v5', audio_format: 'auto', language_hints: ['en', 'ru'], enable_endpoint_detection: true,
+      context: { terms: ['Onest', 'hero section', 'lorem ipsum', 'Fujifilm'] } })) // words the recognizer gets wrong without a hint
+    for (const c of chunks) ws.send(c), dbg && (dbg.pre += c.size) // the audio from before the socket was open
+    rec.ondataavailable = e => { ws.readyState === 1 && ws.send(e.data); dbg && (dbg.sent += e.data.size) }
+  }
+  ws.onclose = e => e.code !== 1000 && e.code !== 1005 && tele({ event: 'mic', closed: e.code, reason: e.reason })
+  ws.onmessage = e => {
+    const d = JSON.parse(e.data)
+    if (d.error_message) { // for example a wrong key: continue with the browser recognizer
+      rec.state !== 'inactive' && rec.stop()
+      close()
+      tele({ event: 'mic', recognizer: 'browser', why: d.error_message })
+      if (on) stopMic = webSpeech()
+      return
+    }
+    let live = ''
+    for (const t of d.tokens || []) {
+      if (t.text === '<end>') { // Soniox heard the end of the phrase
+        if (final.trim()) hear(final, true)
+        final = last = ''
+      } else if (t.is_final) final += t.text
+      else live += t.text
+    }
+    last = final + live
+    if (dbg) dbg.msgs++, dbg.text = last, dbg.fin = d.finished
+    if (d.finished) return close()
+    if (last.trim()) hear(last, false)
+  }
+  return stop
+}
+
+// ponytail: Web Speech API, Chrome only, audio goes to Google, the end of a phrase arrives late.
+function webSpeech() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition
+  if (!SR) { note('This browser has no speech recognition. Open the page in Chrome.'); return () => {} }
+  const rec = new SR()
+  rec.lang = LANG
+  rec.continuous = true
+  rec.interimResults = true
+  rec.onresult = e => {
+    let partial = ''
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) hear(e.results[i][0].transcript, true)
+      else partial += e.results[i][0].transcript
+    }
+    if (partial) hear(partial, false)
+  }
+  rec.onerror = e => { if (e.error !== 'no-speech') note('Microphone: ' + e.error) }
+  rec.onend = () => on && rec.start() // Chrome stops after silence
+  rec.start()
+  return () => rec.stop()
+}
+
+$('mic').onclick = toggleMic
+$('back').onclick = () => travel(-1)
+$('fwd').onclick = () => travel(1)
+// Clear needs no question: it is one more step of the history, so undo brings the page back.
+$('clear').onclick = () => { const draw = () => { paint([]); save() }; document.startViewTransition ? document.startViewTransition(draw) : draw() }
+addEventListener('keydown', e => { if (e.metaKey && e.code === 'KeyZ') { e.preventDefault(); travel(e.shiftKey ? 1 : -1) } })
+// The model cannot check an image address. A broken image gets a photo from the local photo store, found by its alt text.
+$('canvas').addEventListener('error', e => {
+  const img = e.target
+  if (img.tagName !== 'IMG' || img.dataset.retried) return
+  img.dataset.retried = 1
+  fetch('/api/log', { method: 'POST', body: JSON.stringify({ event: 'broken_image', url: img.getAttribute('src'), alt: img.alt }), keepalive: true }).catch(() => {})
+  if (!img.getAttribute('src')?.startsWith('/photo')) img.src = '/photo?q=' + encodeURIComponent(img.alt || 'photograph')
+}, true)
+// Space: hold to talk (push to talk), or tap to switch the microphone on and off.
+let downAt = 0, wasOn = false
+document.onkeydown = e => {
+  if (e.code !== 'Space' || e.target !== document.body) return
+  e.preventDefault()
+  if (e.repeat) return
+  downAt = performance.now()
+  wasOn = on
+  if (!on) toggleMic()
+}
+document.onkeyup = e => {
+  if (e.code !== 'Space' || !downAt) return
+  const held = performance.now() - downAt > 350
+  downAt = 0
+  if (on && (held || wasOn)) toggleMic()
+}
+
+// ⌘ held: point and talk with one key. The 0.2 s wait keeps shortcuts like ⌘R and ⌘C from switching the microphone on.
+let cmdTimer, cmdTalk = false
+addEventListener('keydown', e => {
+  clearTimeout(cmdTimer)
+  primed?.then(p => p.rec.stop()) // another key came: this is a shortcut, not speech
+  primed = null
+  if (e.key !== 'Meta' || on) return
+  primed = prime() // record from the key press, so the first word is kept during the 0.2 s wait
+  primed.catch(() => {})
+  cmdTimer = setTimeout(() => { cmdTalk = true; toggleMic() }, 200)
+})
+const cmdUp = () => {
+  clearTimeout(cmdTimer)
+  if (!cmdTalk) { primed?.then(p => p.rec.stop()); primed = null }
+  if (cmdTalk && on) toggleMic()
+  cmdTalk = false
+}
+addEventListener('keyup', e => e.key === 'Meta' && cmdUp())
+addEventListener('blur', cmdUp) // ⌘Tab leaves the window and the key-up never arrives
+$('canvas').onclick = e => { const sec = e.target.closest('#canvas > div'); if (sec) select(sec) }
+
+fetch('prompt.txt').then(r => r.text()).then(async t => {
+  system = t
+  await restore()
+  // Start the Claude Code process now, so the first speech does not wait for it.
+  if (CLAUDE) fetch('/api/claude', { method: 'POST', body: JSON.stringify({ model: MODEL, effort: EFFORT, messages: [{ content: system }] }) })
+  // ?say=first phrase|second phrase plays phrases without a microphone.
+  for (const phrase of (q.get('say') || '').split('|').filter(Boolean)) {
+    hear(phrase, true)
+    await new Promise(r => setTimeout(r, 2500))
+  }
+  // ?point=img moves a pretend mouse with ⌘ over that element, to test pointing without hands.
+  const target = q.get('point') && document.querySelector('#canvas ' + q.get('point'))
+  if (target) {
+    await new Promise(r => setTimeout(r, +(q.get('wait') || 3000)))
+    const r = target.getBoundingClientRect()
+    for (let i = 0; i < 14; i++) {
+      const x = r.left - 260 + i * 26, y = r.top + 60 + Math.sin(i / 2) * 40
+      document.elementFromPoint(x, y)?.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, metaKey: true, clientX: x, clientY: y }))
+    }
+    if (q.get('then')) hear(q.get('then'), true)
+  }
+  if (q.get('mic')) { toggleMic(); setTimeout(toggleMic, +q.get('mic')) } // ?mic=ms holds the microphone on for that time
+  if (q.get('pick')) { await new Promise(r => setTimeout(r, +(q.get('wait') || 3000))); $('pick').querySelectorAll('.grid button')[q.get('pick') - 1]?.click(); await new Promise(r => setTimeout(r, 6000)); $('pickUse').click() } // ?pick=2&wait=ms picks the second version
+  if (q.get('reload')) setTimeout(() => location.replace('?page=' + PAGE), +q.get('reload')) // ?reload=ms tests what a reload keeps
+  if (q.get('click')) { await new Promise(r => setTimeout(r, 1500)); $(q.get('click')).click() } // ?click=clear tests a bar button
+  if (q.get('undo')) { await new Promise(r => setTimeout(r, +q.get('undo'))); travel(-1) } // ?undo=ms tests the history
+})
+</script>
+</html>
