@@ -2,7 +2,7 @@
 // It takes the bar and the task cards from the tool's own index.html, so the widget and the tool never drift apart.
 window.VERBALLY_CODE = true
 window.VERBALLY_BASE = '/_v'
-document.head.insertAdjacentHTML('beforeend', '<link rel="stylesheet" href="/_v/ui.css"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@500&display=swap">'
+document.head.insertAdjacentHTML('beforeend', '<link rel="stylesheet" href="/_v/ui.css"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400..600&display=swap">'
   + '<style>#bar, #tasks, #trail, #pick, #zone, .vb-mark, canvas.sweep { z-index: 2147483000 !important; }</style>') // above the app's own dialogs
 const tool = new DOMParser().parseFromString(await (await fetch('/_v/index.html')).text(), 'text/html')
 for (const id of ['trail', 'pick', 'bar', 'tasks', 'menu']) document.body.append(tool.getElementById(id))
