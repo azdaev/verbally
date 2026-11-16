@@ -1,0 +1,148 @@
+/* One motion language for the whole tool: one curve, short times, exits faster than entries, blur on entry. */
+:root { --vb-ease: cubic-bezier(.22, 1, .36, 1); --vb-pop: cubic-bezier(.34, 1.56, .64, 1);
+        --vb-fg: #707070; --vb-strong: #0a0a0a; --vb-faint: #a3a3a3; --vb-accent: #3232ff; --vb-raised: rgba(255, 255, 255, .92);
+        --vb-lifted: 0 0 0 .5px rgba(0, 0, 0, .1), 0 1px 0 #fff inset, 0 12px 32px -8px rgba(0, 0, 0, .28), 0 2px 6px rgba(0, 0, 0, .06); }
+body:has(> #canvas) { margin: 0; padding-bottom: 96px; background: #fff; }
+
+#canvas > div { outline: 1px solid transparent; outline-offset: -1px; transition: outline-color .15s; }
+#canvas > div.cur:not(:empty) { outline-color: rgba(0, 0, 0, .1); }
+/* Only the part that changes shows the wait: a new section as a soft block, an edited element with a glow. */
+#canvas > div.busy:empty { min-height: 160px; background: #f4f4f5; animation: wait 1s ease-in-out infinite alternate; }
+@keyframes wait { from { opacity: 1; } to { opacity: .45; } }
+/* White plus accent: one of them shows on any background. */
+:is(#canvas, .vb-code) .point { outline: 1px dashed rgba(99, 102, 241, .7); outline-offset: 2px; box-shadow: 0 0 0 1px rgba(255, 255, 255, .6); }
+:is(#canvas, .vb-code) .glow { outline: 0; border-radius: 6px; animation: glow .8s ease-in-out infinite alternate; }
+@keyframes glow { from { box-shadow: 0 0 0 2px rgba(255, 255, 255, .35), 0 0 0 4px rgba(99, 102, 241, .25), 0 0 0 rgba(255, 255, 255, 0); }
+                  to { box-shadow: 0 0 0 2px rgba(255, 255, 255, .95), 0 0 0 4px rgba(99, 102, 241, .85), 0 0 32px 6px rgba(255, 255, 255, .45); } }
+/* The zone that ⌥ + mouse draws: what the model will see as a picture. */
+#zone { position: fixed; z-index: 10; pointer-events: none; border: 1.5px dashed rgba(99, 102, 241, .9); border-radius: 10px; background: rgba(99, 102, 241, .06);
+        box-shadow: 0 0 0 1px rgba(255, 255, 255, .7); opacity: 0; transition: opacity .2s; }
+#zone.on { opacity: 1; }
+/* A mark: the mouse stopped here with ⌥ held. The number is the one that the speech gets at that moment. */
+.vb-mark { position: fixed; z-index: 10; pointer-events: none; border: 2px solid rgba(99, 102, 241, .95); border-radius: 12px; background: rgba(99, 102, 241, .08);
+        box-shadow: 0 0 0 1px rgba(255, 255, 255, .8); display: flex; align-items: flex-start; justify-content: flex-start; padding: 6px; box-sizing: border-box;
+        animation: mark-in .25s cubic-bezier(.22, 1, .36, 1); }
+.vb-mark span { font: 600 15px/1 'Public Sans', system-ui; color: #fff; background: rgb(99, 102, 241); border-radius: 999px; padding: 4px 7px; }
+@keyframes mark-in { from { opacity: 0; transform: scale(.96); filter: blur(4px); } }
+canvas.sweep { position: fixed; z-index: 10; pointer-events: none; }
+#trail { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 10; }
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: .25s; animation-timing-function: var(--vb-ease); }
+
+/* The bar holds only what the user can use now. An empty page shows the microphone alone.
+   Words come while speech arrives. Undo, redo and clear come when the page has a history. */
+#bar { position: fixed; right: 22px; bottom: 22px; z-index: 11; max-width: calc(100vw - 32px); box-sizing: border-box;
+       display: flex; align-items: center; height: 52px; padding: 6px; border-radius: 26px; interpolate-size: allow-keywords;
+       background: var(--vb-raised); -webkit-backdrop-filter: blur(20px) saturate(1.8); backdrop-filter: blur(20px) saturate(1.8); box-shadow: var(--vb-lifted);
+       color: var(--vb-fg); font: 500 14px/1 'Public Sans', ui-sans-serif, system-ui, sans-serif; -webkit-font-smoothing: antialiased;
+       animation: bar-in .5s var(--vb-ease) both; }
+@keyframes bar-in { from { opacity: 0; scale: .9; filter: blur(8px); translate: 0 12px; } }
+#bar button { position: relative; flex: none; width: 40px; height: 40px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--vb-fg); cursor: pointer;
+              display: grid; place-items: center; transition: background .15s, color .15s, scale .2s var(--vb-pop), opacity .15s; }
+#bar button:hover { background: rgba(0, 0, 0, .06); color: var(--vb-strong); }
+#bar button:active { scale: .92; }
+#bar button:disabled { opacity: .25; pointer-events: none; }
+#bar button:focus-visible { outline: 2px solid color-mix(in srgb, var(--vb-accent) 45%, transparent); outline-offset: 1px; }
+#bar svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+
+/* A label comes above a button after a short wait, so a fast mouse does not flash labels. */
+#bar [data-tip]::after { content: attr(data-tip); position: absolute; right: 0; bottom: calc(100% + 14px); translate: 0 4px; padding: 7px 10px; border-radius: 9px;
+                         background: #161616; color: #fff; font-size: 12px; white-space: nowrap; pointer-events: none; opacity: 0; filter: blur(4px);
+                         transition: opacity .12s, translate .12s, filter .12s; }
+#bar [data-tip]:hover::after { opacity: 1; translate: 0 0; filter: none; transition: opacity .25s var(--vb-ease) .45s, translate .25s var(--vb-ease) .45s, filter .25s var(--vb-ease) .45s; }
+
+/* Microphone: the one main control. Off it is a quiet grey disc. On it is red with a slow ring: the sign for "recording". */
+#mic { background: rgba(0, 0, 0, .05) !important; color: var(--vb-strong) !important; }
+#mic:hover { background: rgba(0, 0, 0, .1) !important; }
+#mic.on { background: #ff3b30 !important; color: #fff !important; animation: listen 1.8s var(--vb-ease) infinite; }
+@keyframes listen { from { box-shadow: 0 0 0 0 rgba(255, 59, 48, .5); } to { box-shadow: 0 0 0 12px rgba(255, 59, 48, 0); } }
+
+/* Speech: the words that the recognizer can still change show in the bar. */
+#say { display: flex; justify-content: flex-end; overflow: hidden; width: 0; max-width: 420px; height: 40px;
+       transition: width .45s var(--vb-ease); }
+#say.over { -webkit-mask-image: linear-gradient(90deg, transparent, #000 24px); mask-image: linear-gradient(90deg, transparent, #000 24px); }
+#heard { display: flex; flex: none; align-items: center; padding: 0 8px 0 12px; white-space: nowrap; pointer-events: none; color: var(--vb-strong); }
+/* Tasks: each finished phrase is one card in a stack above the bar, newest at the bottom.
+   A card waits in white, shimmers while the model works on it, turns green when its change is on the page, then leaves.
+   The model names the task; the spoken words stay in the second line. */
+/* overflow hides the old cards at the top; the padding keeps the card shadows (12px down, 32px blur) inside the box, so they are not cut */
+#tasks { position: fixed; right: -10px; bottom: 42px; padding: 24px 32px 44px; z-index: 11; display: flex; flex-direction: column; align-items: flex-end; gap: 6px;
+         max-height: calc(100vh - 72px); overflow: hidden; box-sizing: border-box; pointer-events: none; font: 500 13px/1.3 'Public Sans', ui-sans-serif, system-ui, sans-serif;
+         color: var(--vb-strong); -webkit-font-smoothing: antialiased; }
+/* × on a card cancels its phrase. It shows on hover, and only while the phrase is not done. */
+#tasks .ph { position: relative; pointer-events: auto; }
+#tasks .ph .x { position: absolute; top: 6px; right: 6px; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 50%; background: rgba(0, 0, 0, .06);
+                color: var(--vb-fg); font: 16px/1 ui-sans-serif, system-ui; cursor: pointer; opacity: 0; transition: opacity .15s, background .15s, color .15s; }
+#tasks .ph:hover .x { opacity: 1; }
+#tasks .ph .x:hover { background: rgba(217, 45, 32, .12); color: #d92d20; }
+#tasks .ph:is(.done, .skip, .err) .x { display: none; }
+#tasks .ph { box-sizing: border-box; width: 320px; padding: 10px 14px; border-radius: 14px; background: var(--vb-raised); box-shadow: var(--vb-lifted);
+             -webkit-backdrop-filter: blur(20px) saturate(1.8); backdrop-filter: blur(20px) saturate(1.8);
+             animation: word .35s var(--vb-ease) both; transition: opacity .3s var(--vb-ease), filter .3s var(--vb-ease), scale .3s var(--vb-ease), color .25s, background-color .25s; }
+#tasks .ph b, #tasks .ph small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#tasks .ph b { font-weight: 500; }
+#tasks .ph b:empty { display: none; }
+#tasks .ph small { color: var(--vb-fg); font-size: 12px; }
+#tasks .ph b:not(:empty) + small { margin-top: 2px; }
+@keyframes word { from { opacity: 0; filter: blur(5px); translate: 0 4px; } }
+#bar.busy ~ #tasks .ph:not(.done, .err, .skip) { background: linear-gradient(90deg, rgba(255, 255, 255, .94) 30%, rgba(228, 228, 236, .96) 50%, rgba(255, 255, 255, .94) 70%) 0 0 / 640px 100%;
+                                                animation: word .35s var(--vb-ease) both, think 1.4s linear infinite; }
+@keyframes think { from { background-position: 640px 0; } to { background-position: 0 0; } }
+#tasks .ph.done { background: rgba(236, 248, 240, .96); color: #14713a; }
+#tasks .ph.done b::before { content: '✓ '; }
+#tasks .ph.look:not(.done) b::before { content: '👁 '; }
+#tasks .ph.skip { opacity: .5; text-decoration: line-through; }
+#tasks .ph.err { background: rgba(253, 236, 234, .96); color: #d92d20; }
+#tasks .ph.out { opacity: 0; filter: blur(4px); scale: .9; }
+#live { flex: none; color: var(--vb-fg); }
+#live:empty { display: none; }
+
+/* Picker: the versions of one image that the model offers. It sits above the bar. A version under the mouse shows on the page at once. */
+#pick { position: fixed; left: 50%; bottom: 88px; z-index: 11; translate: -50% 0; width: max-content; max-width: calc(100vw - 32px); box-sizing: border-box; padding: 12px; border-radius: 22px;
+        background: var(--vb-raised); -webkit-backdrop-filter: blur(20px) saturate(1.8); backdrop-filter: blur(20px) saturate(1.8); box-shadow: var(--vb-lifted);
+        color: var(--vb-fg); font: 500 13px/1 'Public Sans', ui-sans-serif, system-ui, sans-serif; animation: pick-in .35s var(--vb-ease) both; }
+#pick[hidden] { display: none; }
+@keyframes pick-in { from { opacity: 0; scale: .94; filter: blur(8px); translate: -50% 10px; } }
+#pick header { display: flex; justify-content: space-between; align-items: center; padding: 2px 4px 10px; }
+#pick header b { color: var(--vb-strong); font-weight: 500; }
+#pick header button { border: 0; background: none; color: var(--vb-fg); font: inherit; cursor: pointer; padding: 4px 6px; border-radius: 8px; transition: background .15s, color .15s; }
+#pick header button:hover { background: rgba(0, 0, 0, .06); color: var(--vb-strong); }
+#pick header span { display: flex; gap: 6px; }
+#pickUse { padding: 7px 12px !important; border-radius: 999px !important; background: var(--vb-strong) !important; color: #fff !important; transition: opacity .15s, scale .2s var(--vb-pop) !important; }
+#pickUse:disabled { opacity: .25; pointer-events: none; }
+#pickUse:active { scale: .95; }
+#pick .grid { display: grid; grid-template-columns: repeat(5, 124px); gap: 8px; }
+#pick .grid button { position: relative; height: 92px; padding: 0; border: 0; border-radius: 12px; overflow: hidden; background: #ececec; cursor: pointer;
+                     transition: scale .2s var(--vb-pop), box-shadow .15s; animation: word .35s var(--vb-ease) both; }
+#pick .grid button:hover, #pick.wide .grid button:hover { scale: 1.04; box-shadow: 0 0 0 2px var(--vb-strong); z-index: 1; }
+#pick .grid button:active { scale: .97; }
+#pick .grid button.now, #pick.wide .grid button.now { box-shadow: 0 0 0 2.5px var(--vb-accent); }
+#pick .grid > button > .label { display: grid; place-items: center; height: 100%; padding: 8px 10px; box-sizing: border-box; color: var(--vb-strong); font-size: 12px; line-height: 1.3; text-align: center; }
+#pick .grid > button > img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* A layout version: the real section, drawn small. */
+#pick.wide .grid { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 176px; }
+#pick.wide .grid button { height: 110px; background: #fff; box-shadow: 0 0 0 1px rgba(0, 0, 0, .08); }
+#pick .thumb { width: 176px; height: 110px; overflow: hidden; text-align: left; }
+#pick .thumb > div { width: 1280px; transform: scale(.1375); transform-origin: 0 0; pointer-events: none; }
+#pick .grid i { position: absolute; left: 6px; top: 6px; min-width: 18px; padding: 3px 0; border-radius: 9px; background: rgba(0, 0, 0, .55); color: #fff; font-style: normal; font-size: 11px; text-align: center; }
+@media (max-width: 720px) { #pick .grid { grid-template-columns: repeat(3, 1fr); } }
+
+/* Pointer chip: pops in with a small bounce. */
+#pt { flex: none; max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin: 0 4px 0 8px; padding: 8px 11px; border-radius: 999px;
+      background: color-mix(in srgb, var(--vb-accent) 9%, transparent); color: var(--vb-accent); font-size: 12px;
+      animation: chip .35s var(--vb-pop) both; }
+#pt:empty { display: none; }
+@keyframes chip { from { opacity: 0; scale: .7; filter: blur(4px); } }
+
+/* History tools: closed while the page has no history. The buttons come in after the bar has made room. */
+#tools { display: flex; align-items: center; width: 0; opacity: 0; visibility: hidden; scale: .8; filter: blur(4px);
+         transition: width .45s var(--vb-ease), opacity .15s, scale .15s, filter .15s, visibility 0s .45s; }
+#tools.open { width: auto; opacity: 1; visibility: visible; scale: 1; filter: none;
+              transition: width .45s var(--vb-ease), opacity .3s var(--vb-ease) .15s, scale .35s var(--vb-pop) .15s, filter .3s var(--vb-ease) .15s; }
+#tools .sep { flex: none; width: 1px; height: 20px; margin: 0 6px 0 8px; background: rgba(0, 0, 0, .09); }
+#clear:hover { background: rgba(217, 45, 32, .1) !important; color: #d92d20 !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  #bar, #tasks .ph, #pt, #canvas > div.busy:empty, #canvas .glow, #mic.on, #bar.busy ~ #tasks .ph:not(.done, .err, .skip) { animation: none; }
+  :is(#canvas, .vb-code) .glow { box-shadow: 0 0 0 2px rgba(255, 255, 255, .95), 0 0 0 4px rgba(99, 102, 241, .85); }
+  #say, #tools, #tools.open, #bar button { transition: none; }
+}

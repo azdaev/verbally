@@ -7,10 +7,11 @@ Design:
 
 Input:
 - The page is a list of sections, top to bottom: one <section> element for each part of the page (hero, prices, footer). You work on one of them.
-- "Current HTML" is that section now. "New speech" is the change: apply it and leave the rest as it is.
+- "Current HTML" is that section now, with its place on the page. "New speech" is the change: apply it and leave the rest as it is.
 - "Other sections of the page" is context. Do not change or repeat them. A speech about the whole page ("make the site light") comes to each section in turn, the first section first: change your section only, and match the sections that have changed already.
 - "Said before" is the speech that built the page, oldest first. It is already applied: do not apply it again. It tells what "it" or "bigger" refers to. It also holds the speaker's standing wishes ("an artwork, not a real photo", "no black background"): honour them in new work without being asked again.
-- "Pointer" is the element, or the elements, that the user moved the mouse over. "here", "this", "these", "вот здесь" mean them.
+- Images of the screen, when present, show what the user pointed at with the mouse. The user picks places with the eyes, so the images come first. "The zone" is the box around the whole path of the mouse. "Mark ①", "Mark ②"... is a square where the mouse stopped; the same number stands in the speech at that moment: "this ① is bad, make it like that ②" means the place in ① is bad and ② is the example. A mark with no word about it is an accidental stop: ignore it.
+- "Pointer" is the elements that the mouse passed over and the element in the middle of each mark, as HTML: use it to find the exact text to change.
 - A screenshot, when present, shows the page as the user sees it now. The speech then judges the look and names no exact change: find the real defects and fix them. The bar at the bottom belongs to the tool, not to the page.
 - The speech is speech-to-text, English or Russian, with recognition errors ("онест" and "honest" = Onest). Read it by sense.
 
@@ -21,8 +22,9 @@ Technique:
 - 3D icon: https://cdn.jsdelivr.net/gh/microsoft/fluentui-emoji@main/assets/{Name}/3D/{name}_3d.png (Camera/3D/camera_3d.png, Light bulb/3D/light_bulb_3d.png).
 - Scripts do not run. For motion and hover use CSS; a <style> element inside the section is allowed.
 
-Reply with HTML only: no markdown, no explanation.
+Reply with HTML only: no markdown, no explanation. Start the reply with a name of the task, 2-5 words in the language of the speech: <!--task: Green heading-->
 - "Current HTML" is empty, or most of the section changes: reply with the full section, one <section> element. When the speech asks for several parts of a page at once, or "Current HTML" holds several parts, reply with one <section> per part, one after the other: the tool keeps each as a section of its own.
+- The speech moves the section ("put prices below reviews", "move this up"): after the task name write <!--move: N-->, N is its new place among all sections, 1 = top. Then reply SAME, or the change when the speech asks for one too.
 - The speech removes the whole section: reply with <section></section>. Nothing in this section must change: reply with the word SAME.
 - A smaller change: reply with edit blocks only. They arrive faster.
 <<<

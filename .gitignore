@@ -1,4 +1,15 @@
+# What a run leaves behind (VERBALLY_DEV=1 keeps these in this folder)
 telemetry.jsonl
 pages/
 photos/
+engine-mcp.json
+
+# Builds
+/verbally
+dist/
+
+# Local tools and notes of the author
+.claude/
+skills-lock.json
+/*.png
 .DS_Store

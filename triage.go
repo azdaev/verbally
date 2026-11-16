@@ -2,16 +2,10 @@ package main
 
 import (
 	"bytes"
-	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"os"
-	"os/exec"
-	"path/filepath"
-	"strings"
-	"sync"
 	"time"
 )
 
@@ -47,8 +41,12 @@ func triage(w http.ResponseWriter, r *http.Request) {
 	json.NewDecoder(r.Body).Decode(&in)
 	out := map[string]any{"filler": false, "look": false, "versions": false}
 	defer func() { json.NewEncoder(w).Encode(out) }()
+	if in.Text == "" {
+		return
+	}
 	key := os.Getenv("TYPESAFE_API_KEY")
-	if key == "" || in.Text == "" {
+	if key == "" {
+		out = rules(in.Text, in.Sections)
 		return
 	}
 	t0 := time.Now()
@@ -73,6 +71,7 @@ func triage(w http.ResponseWriter, r *http.Request) {
 	res, err := jev.Do(req)
 	if err != nil {
 		logEvent(map[string]any{"src": "server", "event": "triage_failed", "error": err.Error()})
+		out = rules(in.Text, in.Sections)
 		return
 	}
 	defer res.Body.Close()
@@ -101,44 +100,4 @@ func triage(w http.ResponseWriter, r *http.Request) {
 	}
 	ev["target"], ev["ms"] = out["target"], time.Since(t0).Milliseconds()
 	logEvent(ev)
-}
-
-// The screenshot is the browser window whose title holds the name that the page gave itself.
-// So Claude sees what the user sees: the part of the page that is on screen now.
-// A small Swift program finds the window number. It is built once, because `swift -e` needs a second for each run.
-const winSrc = `import CoreGraphics
-let l = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as! [[String: Any]]
-for w in l where ((w["kCGWindowName"] as? String) ?? "").contains(CommandLine.arguments[1]) { print(w["kCGWindowNumber"]!); break }
-`
-
-var winBin = sync.OnceValue(func() string {
-	src, bin := filepath.Join(os.TempDir(), "verbally-winid.swift"), filepath.Join(os.TempDir(), "verbally-winid")
-	os.WriteFile(src, []byte(winSrc), 0o600)
-	if exec.Command("swiftc", "-O", "-o", bin, src).Run() != nil {
-		return ""
-	}
-	return bin
-})
-
-// screenshot returns the window as a base64 JPEG, at most 1568 px wide: enough to judge a layout, small enough to be fast.
-func screenshot(title string) (string, error) {
-	if winBin() == "" || !strings.HasPrefix(title, "Verbally") {
-		return "", errors.New("no window finder")
-	}
-	id, _ := exec.Command(winBin(), title).Output()
-	if len(bytes.TrimSpace(id)) == 0 {
-		return "", errors.New("the window is not on screen")
-	}
-	f, err := os.CreateTemp("", "verbally-*.jpg")
-	if err != nil {
-		return "", err
-	}
-	f.Close()
-	defer os.Remove(f.Name())
-	if err := exec.Command("screencapture", "-x", "-o", "-l", string(bytes.TrimSpace(id)), "-t", "jpg", f.Name()).Run(); err != nil {
-		return "", err
-	}
-	exec.Command("sips", "-Z", "1568", f.Name()).Run()
-	img, err := os.ReadFile(f.Name())
-	return base64.StdEncoding.EncodeToString(img), err
 }

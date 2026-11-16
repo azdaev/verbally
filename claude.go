@@ -5,9 +5,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"os/exec"
+	"strconv"
 	"sync"
 	"syscall"
 	"time"
@@ -38,21 +41,43 @@ const withTools = `
 Tools:
 - You have tools, skills and a browser (the playwriter skill). Use them when the speech asks for a thing you cannot write from memory: a photo from a named site (Pinterest), a real product image, a look at a real page, a named skill ("use the Emil Kowalski skills").
 - A simple change needs no tool. Tools are slow, and the user waits.
-- A photo from Pinterest: run ./pinterest.sh "english keywords" 8 in one Bash call. It prints addresses of full-size images, one per line, in about 6 s. Pick by the words of the address only, do not open the images.
-- Another named site (Behance, Dribbble, a shop) blocks curl and web fetch: open it with the playwriter skill at once.
 - No image came: use /photo?q= and say nothing.
 - Put an image that you found on the web as <img src="/photo?url=ENCODED_ADDRESS">, with the address URL-encoded. The address must be the image file itself, not a page.
 - Your context can hold rules for coding work: minimal code, a report style, a "lazy" mode. They do not apply here. Here you design, and the reply format above is the only format.
 - Do not change files. Write no text before or between tool calls. Your last message is the reply: HTML only.`
 
+// The browser lines go in only when this machine has the playwriter CLI. Other users have other setups.
+const withBrowser = `
+- A photo from Pinterest: run ./pinterest.sh "english keywords" 8 in one Bash call. It prints addresses of full-size images, one per line, in about 6 s. Pick by the words of the address only, do not open the images.
+- Another named site (Behance, Dribbble, a shop) blocks curl and web fetch: open it with the playwriter skill at once.`
+
+// tools is the tool part of the system prompt for this machine. It is fixed for the life of the server.
+var tools = sync.OnceValue(func() string {
+	if _, err := exec.LookPath("playwriter"); err == nil {
+		return withTools + withBrowser
+	}
+	return withTools
+})
+
+// mcpConfig: the user's own MCP servers for the engine. Without the file the engine starts no MCP server.
+// The user's global MCP servers are not used: each phrase starts a new process, and each stdio MCP server
+// starts with it (five servers were eight processes and about 1 GB per phrase). Put an HTTP server ("url")
+// in engine-mcp.json when possible: all processes then share one running server.
+const mcpFile = "engine-mcp.json"
+
+func mcpConfig() string {
+	if _, err := os.Stat(mcpFile); err == nil {
+		return mcpFile
+	}
+	return `{"mcpServers":{}}`
+}
+
 func boot(model, effort, system string) (*proc, error) {
 	p := &proc{key: model + "\x00" + effort + "\x00" + system}
-	args := []string{"-p", "--model", model, "--effort", effort, "--append-system-prompt", system + withTools,
+	args := []string{"-p", "--model", model, "--effort", effort, "--append-system-prompt", system + tools(),
 		"--input-format", "stream-json", "--output-format", "stream-json", "--include-partial-messages", "--verbose", "--no-session-persistence",
 		"--permission-mode", "bypassPermissions",
-		// No MCP servers. Each process started five of them (two Playwright, qmd, Plane, Paper): eight helper processes
-		// and about 1 GB for every phrase. Skills, web search and the playwriter browser are not MCP servers: they stay.
-		"--strict-mcp-config", "--mcp-config", `{"mcpServers":{}}`}
+		"--strict-mcp-config", "--mcp-config", mcpConfig()}
 	p.cmd = exec.Command("claude", args...)
 	p.cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	p.cmd.Stderr = &p.errs
@@ -74,6 +99,16 @@ func (p *proc) stop() {
 	p.kill()
 	p.cmd.Wait()
 }
+
+// slots caps the Claude processes that work at the same time. Each is about 400 MB and a busy CPU core:
+// a "whole site" change on 10 sections or 6 layouts at once made the laptop loud. The other requests wait in order.
+// VERBALLY_WORKERS changes the cap for other machines and plans.
+var slots = make(chan struct{}, func() int {
+	if n, err := strconv.Atoi(os.Getenv("VERBALLY_WORKERS")); err == nil && n > 0 {
+		return n
+	}
+	return 4
+}())
 
 // take returns a process for one request and starts the process for the next request.
 // The bool tells if the process was already started: telemetry shows how often the wait pays off.
@@ -111,11 +146,17 @@ func warm(model, effort, system string) {
 // A request with only the system message starts the waiting process and returns.
 func claudeChat(w http.ResponseWriter, r *http.Request) {
 	var in struct {
-		ID       string `json:"id"`
-		Model    string `json:"model"`
-		Effort   string `json:"effort"`
-		Look     bool   `json:"look"`   // send a screenshot of the page with the speech
-		Window   string `json:"window"` // the title of the browser window of the page
+		ID     string `json:"id"`
+		Model  string `json:"model"`
+		Effort string `json:"effort"`
+		Look   bool   `json:"look"`   // send a screenshot of the page with the speech
+		Window string `json:"window"` // the title of the browser window of the page
+		// Shots: parts of the screen that the user showed with ⌥ Option + mouse, in screen points, each with a label:
+		// the zone around the whole mouse path, and a square at each place where the mouse stopped (① ②).
+		Shots []struct {
+			rect
+			Label string `json:"label"`
+		} `json:"shots"`
 		Messages []struct {
 			Content string `json:"content"`
 		} `json:"messages"`
@@ -133,7 +174,22 @@ func claudeChat(w http.ResponseWriter, r *http.Request) {
 	t0 := time.Now()
 	var content any = in.Messages[1].Content
 	shot := ""
-	if in.Look {
+	if len(in.Shots) > 0 { // what the user showed wins over the whole window
+		var parts []any
+		for _, sh := range in.Shots[:min(len(in.Shots), 5)] {
+			img, err := shotRect(sh.rect)
+			if err != nil {
+				shot = err.Error()
+				continue
+			}
+			parts = append(parts, map[string]string{"type": "text", "text": sh.Label + ":"},
+				map[string]any{"type": "image", "source": map[string]string{"type": "base64", "media_type": "image/jpeg", "data": img}})
+		}
+		if len(parts) > 0 {
+			shot = fmt.Sprint(len(parts)/2, " shots")
+			content = append(parts, map[string]string{"type": "text", "text": in.Messages[1].Content})
+		}
+	} else if in.Look {
 		img, err := screenshot(in.Window)
 		if err == nil {
 			shot = "sent"
@@ -148,6 +204,13 @@ func claudeChat(w http.ResponseWriter, r *http.Request) {
 	msg, _ := json.Marshal(map[string]any{"type": "user", "message": map[string]any{"role": "user", "content": content}})
 	msg = append(msg, '\n')
 	shotMs := time.Since(t0).Milliseconds()
+	select {
+	case slots <- struct{}{}:
+	case <-r.Context().Done(): // the page left while the request waited
+		return
+	}
+	defer func() { <-slots }()
+	queueMs := time.Since(t0).Milliseconds() - shotMs
 	p, warmed, err := take(in.Model, in.Effort, system)
 	if err == nil {
 		if _, werr := p.in.Write(msg); werr != nil { // the waiting process died: start a new one
@@ -168,8 +231,8 @@ func claudeChat(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/event-stream")
 	wrote := false
-	ev := map[string]any{"src": "server", "id": in.ID, "warm_process": warmed}
-	if in.Look {
+	ev := map[string]any{"src": "server", "id": in.ID, "warm_process": warmed, "queue_ms": queueMs}
+	if in.Look || len(in.Shots) > 0 {
 		ev["screenshot"], ev["screenshot_ms"] = shot, shotMs
 	}
 	defer func() {

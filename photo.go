@@ -39,8 +39,7 @@ func photo(w http.ResponseWriter, r *http.Request) {
 			os.WriteFile(file, img, 0o600)
 			logEvent(map[string]any{"src": "server", "event": "photo", "url": address, "bytes": len(img)})
 		}
-		w.Header().Set("Cache-Control", "max-age=31536000, immutable")
-		http.ServeFile(w, r, file)
+		serve(w, r, file)
 		return
 	}
 	q := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("q")))
@@ -56,8 +55,7 @@ func photo(w http.ResponseWriter, r *http.Request) {
 		photoMu.Lock()
 		defer photoMu.Unlock()
 		if _, err := os.Stat(file); err == nil { // another request for the same words got it meanwhile
-			w.Header().Set("Cache-Control", "max-age=31536000, immutable")
-			http.ServeFile(w, r, file)
+			serve(w, r, file)
 			return
 		}
 		words := strings.Fields(q)
@@ -72,6 +70,11 @@ func photo(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	serve(w, r, file)
+}
+
+// serve sends a kept photo. Its address never changes its content, so the browser may keep it for a year.
+func serve(w http.ResponseWriter, r *http.Request, file string) {
 	w.Header().Set("Cache-Control", "max-age=31536000, immutable")
 	http.ServeFile(w, r, file)
 }
