@@ -44,7 +44,7 @@ Run this in the background, and keep it running:
 verbally <app folder>
 ```
 
-- Ports 8787 and 5180 must be free. To use another port for the app: `verbally <app folder> 5190`.
+- Ports 8787 and 5180 must be free. If a Verbally runs already for another project, start this one on other ports: `VERBALLY_PORT=8788 verbally <app folder> 5190`.
 - Verbally starts the app's own Vite dev server on that port, with the app's config. The user's usual dev server can run at the same time.
 - If the app needs environment variables or a backend to show its pages, start it the same way as the user's `dev` script does.
 - The browser opens `http://localhost:5180` by itself. Check the output: it must show the `Local:` address and no error.

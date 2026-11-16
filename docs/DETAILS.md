@@ -59,6 +59,7 @@ All keys are optional. Set them as environment variables before you start `verba
 | `TYPESAFE_API_KEY` | Jev, a fast yes/no model from [Typesafe](https://typesafe.ai). It drops filler ("uh, okay") and sends each phrase to the right section. Without it key-word rules for English and Russian work. |
 | `OPENROUTER_API_KEY` | A second engine for page mode: add `?engine=openrouter` to the address. Faster, weaker HTML. |
 | `VERBALLY_WORKERS` | How many Claude processes may work at the same time. Default 4. |
+| `VERBALLY_PORT` | The port of the Verbally server. Default 8787. Set it when that port is taken, or to run a second Verbally. |
 | `VERBALLY_HOME` | Where Verbally keeps its files. Default `~/.verbally`. |
 | `BROWSER=none` | Do not open the browser at start. |
 

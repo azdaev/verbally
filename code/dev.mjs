@@ -77,7 +77,7 @@ const server = await vite.createServer({
   server: {
     port: +(process.argv[3] || 5180), strictPort: true,
     open: !!process.env.VERBALLY_OPEN, // `verbally <app>` sets it: the browser opens when the app is ready
-    proxy: { '/_v': { target: 'http://127.0.0.1:8787', rewrite: p => p.slice(3) } },
+    proxy: { '/_v': { target: 'http://127.0.0.1:' + (process.env.VERBALLY_PORT || 8787), rewrite: p => p.slice(3) } },
   },
 })
 await server.listen()

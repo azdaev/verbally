@@ -2,7 +2,9 @@
 
 **Point at your app. Say the change. Watch the code change.**
 
-![The bar on a Vite app, after "make this heading red"](docs/code-mode.png)
+![Point at a heading, say "make this heading huge and orange", and the source file changes](docs/demo.gif)
+
+<sub>Real speed, no cuts. Two phrases, two edits in `src/App.tsx`.</sub>
 
 You look at a button and think "bigger, and not that blue". Now you just say it.
 

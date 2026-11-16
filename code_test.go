@@ -38,4 +38,10 @@ func TestUndoRedo(t *testing.T) {
 	}
 	post("/api/undo", "")
 	has("A")
+	// A full path inside the app is the same file; a full path outside the app is no file.
+	post("/api/file?path="+f, "F")
+	has("F")
+	if post("/api/file?path=/etc/hosts", "X") != http.StatusNotFound {
+		t.Fatal("a file outside the app must not be written")
+	}
 }

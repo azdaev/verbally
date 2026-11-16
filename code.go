@@ -25,7 +25,12 @@ func codeRoutes(root string) {
 		return
 	}
 	file := func(r *http.Request) (string, bool) {
-		full := filepath.Join(root, filepath.Clean("/"+r.URL.Query().Get("path"))) // Clean of an absolute path drops every ".."
+		name := r.URL.Query().Get("path")
+		// The model can name a file by its full path, when it found the file with its own tools (a stylesheet has no mark).
+		if rel, err := filepath.Rel(root, name); filepath.IsAbs(name) && err == nil {
+			name = rel
+		}
+		full := filepath.Join(root, filepath.Clean("/"+name)) // Clean of an absolute path drops every ".."
 		info, err := os.Stat(full)
 		return full, err == nil && info.Mode().IsRegular()
 	}

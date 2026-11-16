@@ -275,10 +275,10 @@ func main() {
 	codeRoutes(app)
 	http.Handle("/", files(site))
 	// Localhost only, and only for pages of this machine (local.go): anyone who reaches this port spends the key.
-	const addr = "127.0.0.1:8787"
+	addr := "127.0.0.1:" + serverPort()
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
-		log.Fatal(err, ". Another Verbally runs already? Stop it first.")
+		log.Fatal(err, ". Another Verbally runs already? Stop it, or set VERBALLY_PORT and give the app another port: verbally <app> 5190")
 	}
 	go func() { log.Fatal(http.Serve(listener, local(http.DefaultServeMux))) }()
 
@@ -295,12 +295,21 @@ func main() {
 	// Code mode: the app's own dev server, with the marks and the bar (code/dev.mjs). It stops with this program.
 	node := exec.CommandContext(ctx, "node", script, app, port)
 	node.Stdout, node.Stderr = os.Stdout, os.Stderr
+	node.Env = append(os.Environ(), "VERBALLY_PORT="+serverPort())
 	if !dev {
-		node.Env = append(os.Environ(), "VERBALLY_OPEN=1")
+		node.Env = append(node.Env, "VERBALLY_OPEN=1")
 	}
 	if err := node.Run(); err != nil && ctx.Err() == nil {
 		log.Fatal("the app's dev server stopped: ", err, ". Code mode needs Node and a Vite + React app; run: verbally doctor")
 	}
+}
+
+// serverPort: VERBALLY_PORT moves the server from 8787, when that port is taken or a second Verbally runs.
+func serverPort() string {
+	if p := os.Getenv("VERBALLY_PORT"); p != "" {
+		return p
+	}
+	return "8787"
 }
 
 // open shows an address in the user's browser. BROWSER=none switches it off, as in Vite.
