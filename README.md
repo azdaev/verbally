@@ -25,7 +25,6 @@ That is all. Claude installs it, starts it, and opens your app with a small bar 
 - "make this heading bigger"
 - "this ① must look like that ②" (stop the mouse for a moment to drop a mark)
 - "show me three versions of this card"
-- "сделай кнопку зелёной". Russian works too.
 - `⌘Z`, when it gets you wrong.
 
 ## Good to know
