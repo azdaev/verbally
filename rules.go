@@ -10,8 +10,9 @@ import (
 // "add a section" grows the hero, "make the whole site dark" changes one section, "uh okay" costs four Claude calls.
 // ponytail: English and Russian key words only. Jev reads the sense; these rules read the words.
 var (
-	ruleFiller   = regexp.MustCompile(`(?i)^[\s.,!?]*((uh+|um+|hm+|okay|ok|so|well|right|yes|no|э+|м+|ну|так|ага|окей|ладно|да|нет|хм+|вот)[\s.,!?-]*)+$`)
-	ruleVersions = regexp.MustCompile(`(?i)(variant|version|option|alternative|вариант|верси|альтернатив)`)
+	ruleFiller = regexp.MustCompile(`(?i)^[\s.,!?]*((uh+|um+|hm+|okay|ok|so|well|right|yes|no|э+|м+|ну|так|ага|окей|ладно|да|нет|хм+|вот)[\s.,!?-]*)+$`)
+	// The word must start there: "conversion" and "конверсия" hold "version" and "верси", and ask for no versions.
+	ruleVersions = regexp.MustCompile(`(?i)(\b(variant|variation|version|option|alternative)|(^|[^\p{L}])(вариант|вариац|верси|альтернатив))`)
 	ruleImage    = regexp.MustCompile(`(?i)(photo|image|picture|фото|картин|изображ)`)
 	ruleNew      = regexp.MustCompile(`(?i)(add|new|another|one more|добав|нов|ещё одн|еще одн)\S*\s+(\S+\s+){0,3}(section|block|секци|блок|раздел)`)
 	ruleAll      = regexp.MustCompile(`(?i)((whole|entire|every|all)\s+(the\s+)?(site|page|section|website)|everywhere|весь сайт|всего сайта|всю страницу|всей страниц|все секции|всех секци|везде|по всему сайту|сайт целиком)`)

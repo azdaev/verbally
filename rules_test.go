@@ -21,6 +21,10 @@ func TestRules(t *testing.T) {
 		{"make the heading green", "target", nil},
 		{"сделай два других варианта хедера", "versions", true},
 		{"дай 5 вариантов фото", "versions", false},
+		{"Give me three variations of this element", "versions", true},
+		{"покажи вариации этой карточки", "versions", true},
+		{"improve the conversion of this button", "versions", false},
+		{"повысь конверсию этой кнопки", "versions", false},
 		{"this looks bad", "look", true},
 	} {
 		if got := rules(c.text, secs)[c.key]; got != c.want {

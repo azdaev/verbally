@@ -191,6 +191,11 @@ func folder(name string) string {
 		return ""
 	}
 	full, err := filepath.Abs(name)
+	// The real path, past symbolic links: Vite names every file by its real path, and the model finds files by it too.
+	// With a link in the path of the app no element got a mark, and a full path from the model was "outside the app".
+	if real, rerr := filepath.EvalSymlinks(full); rerr == nil {
+		full = real
+	}
 	if info, serr := os.Stat(full); err != nil || serr != nil || !info.IsDir() {
 		fmt.Fprintf(os.Stderr, "verbally: %q is not a folder\n\n%s", name, usage)
 		os.Exit(2)
@@ -266,6 +271,10 @@ func main() {
 	})
 	// The browser talks to Soniox directly. It gets a key that lives 10 minutes; the real key stays here.
 	http.HandleFunc("GET /api/soniox", func(w http.ResponseWriter, r *http.Request) {
+		if os.Getenv("SONIOX_API_KEY") == "" { // no key: answer at once, with no request to Soniox for each phrase
+			http.Error(w, "no SONIOX_API_KEY", http.StatusUnauthorized)
+			return
+		}
 		req, _ := http.NewRequestWithContext(r.Context(), "POST", "https://api.soniox.com/v1/auth/temporary-api-key",
 			bytes.NewReader([]byte(`{"usage_type":"transcribe_websocket","expires_in_seconds":600}`)))
 		req.Header.Set("Authorization", "Bearer "+os.Getenv("SONIOX_API_KEY"))
@@ -280,6 +289,7 @@ func main() {
 		io.Copy(w, res.Body)
 	})
 	codeRoutes(app)
+	engineDir = app
 	http.Handle("/", files(site))
 	// Localhost only, and only for pages of this machine (local.go): anyone who reaches this port spends the key.
 	addr := "127.0.0.1:" + serverPort()

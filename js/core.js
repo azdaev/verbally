@@ -43,17 +43,20 @@ async function sweep(r, swap = () => {}) {
     const l = Math.max(0, r.left), t = Math.max(0, r.top)
     r = { left: l, top: t, width: Math.min(innerWidth, r.left + r.width) - l, height: Math.min(innerHeight, r.top + r.height) - t }
   }
-  if (!(r?.width > 0 && r.height > 0) || matchMedia('(prefers-reduced-motion: reduce)').matches) return swap()
+  // A hidden tab gets no animation frames: the band would never reach its middle, and the change would wait until the user comes back.
+  if (!(r?.width > 0 && r.height > 0) || document.hidden || matchMedia('(prefers-reduced-motion: reduce)').matches) return swap()
   glimm ||= import(VB + '/lib/glimm.js')
   const { createShader, playSweep } = await glimm.catch(() => ({}))
   const canvas = document.body.appendChild(Object.assign(document.createElement('canvas'), { className: 'sweep' }))
   Object.assign(canvas.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px' })
   const ctrl = createShader?.({ canvas })
   if (!ctrl) { canvas.remove(); return swap() }
-  let out
+  let out, ran = false
+  const once = async () => { ran = true; out = await swap() }
   // midpoint .35: in code mode the dev server needs about 0.2 s to show the written file, so the change lands while the band still covers it.
-  await playSweep(ctrl, { sweepMs: 800, midpoint: .35, palette: 'prism', onMidpoint: async () => { out = await swap() },
+  await playSweep(ctrl, { sweepMs: 800, midpoint: .35, palette: 'prism', onMidpoint: once,
     onComplete: () => { ctrl.destroy(); canvas.remove() } }).midpoint
+  if (!ran) await once() // the band broke before its middle: the change still lands
   return out
 }
 // box: the box around some elements, in window pixels.

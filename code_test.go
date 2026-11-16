@@ -44,4 +44,65 @@ func TestUndoRedo(t *testing.T) {
 	if post("/api/file?path=/etc/hosts", "X") != http.StatusNotFound {
 		t.Fatal("a file outside the app must not be written")
 	}
+
+	// The picker: a version on the screen is a preview (?noundo=1), not a step to undo.
+	set := func(body string) { os.WriteFile(f, []byte(body), 0o644) }
+	set("base")
+	post("/api/file?path=f.txt&noundo=1", "v1")
+	post("/api/file?path=f.txt&noundo=1", "v2")
+	if post("/api/undo", "") != http.StatusConflict {
+		t.Fatal("undo must wait while a version is on the screen")
+	}
+	has("v2")
+	// "Use this" is one undo step from the text before the picker, not from the version that was shown last.
+	post("/api/file?path=f.txt&noundo=1", "v1")
+	post("/api/file?path=f.txt", "v2")
+	post("/api/undo", "")
+	has("base")
+	// "Cancel", or a page that loaded again: release puts the text from before the picker back.
+	post("/api/file?path=f.txt&noundo=1", "v1")
+	post("/api/release", "")
+	has("base")
+	if post("/api/undo?redo=1", "") != http.StatusOK { // the previews took no step and dropped none
+		t.Fatal("redo must work after a cancelled choice")
+	}
+	has("v2")
+	// Another program changed the file while it showed a version: no preview, no kept version and no release writes over it.
+	post("/api/file?path=f.txt&noundo=1", "v1")
+	set("editor")
+	if post("/api/file?path=f.txt&noundo=1", "v3") != http.StatusConflict {
+		t.Fatal("a preview must not write over a change from another program")
+	}
+	has("editor")
+	post("/api/file?path=f.txt&noundo=1", "v1")
+	set("editor 2")
+	if post("/api/file?path=f.txt", "v1") != http.StatusConflict {
+		t.Fatal("a kept version must not write over a change from another program")
+	}
+	has("editor 2")
+	post("/api/file?path=f.txt&noundo=1", "v1")
+	set("editor 3")
+	post("/api/release", "")
+	has("editor 3")
+
+	// The browser must not keep a copy: two writes in one second have one modification time.
+	w := httptest.NewRecorder()
+	http.DefaultServeMux.ServeHTTP(w, httptest.NewRequest("GET", "/api/file?path=f.txt", nil))
+	if w.Body.String() != "editor 3" || w.Header().Get("Cache-Control") != "no-store" {
+		t.Fatalf("GET gave %q with Cache-Control %q", w.Body.String(), w.Header().Get("Cache-Control"))
+	}
+}
+
+// An app folder behind a symbolic link is named by its real path, as Vite and the model name it.
+func TestFolderRealPath(t *testing.T) {
+	dir := t.TempDir()
+	real, _ := filepath.EvalSymlinks(dir)
+	link := filepath.Join(real, "link")
+	os.Mkdir(filepath.Join(real, "app"), 0o755)
+	if err := os.Symlink(filepath.Join(real, "app"), link); err != nil {
+		t.Skip(err)
+	}
+	if got, want := folder(link), filepath.Join(real, "app"); got != want {
+		t.Fatalf("folder(%q) = %q, want %q", link, got, want)
+	}
 }

@@ -19,5 +19,6 @@ new text
 - The old text must occur exactly once in that file. Keep each block small: the lines that change and one line around them.
 - Keep the code valid: types, imports, closing tags, the syntax of the file.
 - Use what the file already uses: its Tailwind classes, CSS variables, components and icons. Do not add packages.
+- The app styles an element in a stylesheet, and that file is not in "Files": you work in the folder of the app, so find the file with your tools, read it, and name it in the block by its path from that folder. Do not put an inline style in its place.
 - Change only what the speech asks. A shared component changes every page that uses it: when the speech is about this one place, change the file that uses the component.
 - Nothing to change: reply SAME. No explanations.

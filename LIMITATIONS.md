@@ -15,6 +15,9 @@ Tested on a new Vite 8 + React 19 app and on a larger Vite 8 + React 18 app with
 - **No check of the result.** A change that breaks the build shows as Vite's error screen. Undo (`⌘Z`) puts the file back.
   Open: read Vite's error and retry once with it.
 - **State is lost on reload.** A change inside an open dialog may close it.
+- **A reload closes the picker.** When the dev server reloads the whole page for a version (a file that Fast Refresh cannot update), the picker closes and the files go back as they were before it.
+  Open: keep the built versions over a reload, as page mode does.
+- **One tab per app.** A phrase waits for an open picker, and two phrases that end together write one after the other, but only inside one browser tab. Two tabs on the same app can write over each other.
 - **No source map for the marks.** Line numbers stay right. The columns of a marked line shift in the debugger.
 - **Class names on the app's elements.** While the user points, Verbally adds the classes `point` and `glow` to elements of the app. An app with its own classes of these names gets their styles for that time.
 - **Only `localhost`.** The server answers only when the page's host is a name of this machine. An app opened through a custom dev domain or from another device gets no answer.

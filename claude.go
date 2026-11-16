@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"sync"
 	"syscall"
@@ -35,7 +36,10 @@ var spare struct {
 
 // The design engine is the full Claude Code of this machine: global CLAUDE.md, skills, MCP servers, web search
 // and the browser through playwriter. The user asked for this and takes the risk: every tool runs without a question.
-// The process runs in the project folder, so the skills in .claude/skills are there.
+// In code mode the process runs in the folder of the app (engineDir): its tools find the app's files by short paths,
+// and the skills in the project's .claude/skills are there. In page mode it runs in Verbally's own folder.
+var engineDir string
+
 const withTools = `
 
 Tools:
@@ -44,17 +48,26 @@ Tools:
 - No image came: use /photo?q= and say nothing.
 - Put an image that you found on the web as <img src="/photo?url=ENCODED_ADDRESS">, with the address URL-encoded. The address must be the image file itself, not a page.
 - Your context can hold rules for coding work: minimal code, a report style, a "lazy" mode. They do not apply here. Here you design, and the reply format above is the only format.
-- Do not change files. Write no text before or between tool calls. Your last message is the reply: HTML only.`
+- Do not change files. Write no text before or between tool calls. Your last message is the reply, in the reply format above and nothing else.`
 
 // The browser lines go in only when this machine has the playwriter CLI. Other users have other setups.
 const withBrowser = `
-- A photo from Pinterest: run ./pinterest.sh "english keywords" 8 in one Bash call. It prints addresses of full-size images, one per line, in about 6 s. Pick by the words of the address only, do not open the images.
+- A photo from Pinterest: run %s "english keywords" 8 in one Bash call. It prints addresses of full-size images, one per line, in about 6 s. Pick by the words of the address only, do not open the images.
 - Another named site (Behance, Dribbble, a shop) blocks curl and web fetch: open it with the playwriter skill at once.`
+
+// own gives the full path of a file in Verbally's own folder. The engine can run in another folder (engineDir).
+func own(name string) string {
+	full, err := filepath.Abs(name)
+	if err != nil {
+		return name
+	}
+	return full
+}
 
 // tools is the tool part of the system prompt for this machine. It is fixed for the life of the server.
 var tools = sync.OnceValue(func() string {
 	if _, err := exec.LookPath("playwriter"); err == nil {
-		return withTools + withBrowser
+		return withTools + fmt.Sprintf(withBrowser, strconv.Quote(own("pinterest.sh")))
 	}
 	return withTools
 })
@@ -67,7 +80,7 @@ const mcpFile = "engine-mcp.json"
 
 func mcpConfig() string {
 	if _, err := os.Stat(mcpFile); err == nil {
-		return mcpFile
+		return own(mcpFile)
 	}
 	return `{"mcpServers":{}}`
 }
@@ -79,6 +92,7 @@ func boot(model, effort, system string) (*proc, error) {
 		"--permission-mode", "bypassPermissions",
 		"--strict-mcp-config", "--mcp-config", mcpConfig()}
 	p.cmd = exec.Command("claude", args...)
+	p.cmd.Dir = engineDir
 	p.cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	p.cmd.Stderr = &p.errs
 	var err error
@@ -226,7 +240,9 @@ func claudeChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p.in.Close() // one request per process: it answers and exits
-	defer p.cmd.Wait()
+	// stop, not only Wait: when the reading below ends early (a line over the limit), the process still runs,
+	// and Wait alone would hold this request and its slot for ever.
+	defer p.stop()
 	defer context.AfterFunc(r.Context(), func() { p.kill() })() // the page left: stop the process
 
 	w.Header().Set("Content-Type", "text/event-stream")

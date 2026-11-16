@@ -4,11 +4,13 @@
 // Two things are added:
 //   - every JSX element in the app gets data-vsrc="src/file.tsx:line", so pointing at the page finds the source;
 //   - the page loads /_v/overlay.js, and /_v/* goes to the Verbally server (127.0.0.1:8787).
+import fs from 'node:fs'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 
-const app = path.resolve(process.argv[2] || '.')
+// The real path, past symbolic links: Vite names every file by its real path, and the marks compare with it.
+const app = fs.realpathSync(path.resolve(process.argv[2] || '.'))
 const need = createRequire(path.join(app, 'package.json')) // vite and the parser come from the app, not from Verbally
 let vite
 try { vite = await import(pathToFileURL(need.resolve('vite')).href) } catch {
