@@ -15,3 +15,17 @@ func TestDictationIn(t *testing.T) {
 		}
 	}
 }
+
+func TestHexKey(t *testing.T) {
+	for _, c := range []struct{ settings, name, code string }{
+		{`{"dictation_hotkey":{"keys":[{"modifier":"option","side":"right"}]}}`, "right ⌥", "AltRight"},
+		{`{"dictation_hotkey":{"keys":[{"modifier":"option","side":"any"}]}}`, "⌥", ""},
+		{`{"dictation_hotkey":{"keys":[{"modifier":"control","side":"any"},{"code":49,"label":"Space"}]}}`, "⌃ Space", ""},
+		{`{"dictation_hotkey":null}`, "", ""},
+		{``, "", ""},
+	} {
+		if name, code := hexKey([]byte(c.settings)); name != c.name || code != c.code {
+			t.Errorf("hexKey(%s) = %q, %q, want %q, %q", c.settings, name, code, c.name, c.code)
+		}
+	}
+}

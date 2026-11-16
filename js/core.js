@@ -5,7 +5,7 @@ const q = new URLSearchParams(location.search)
 // The default engine is the local Claude Code CLI: best HTML, 3-5 s per request, no OpenRouter cost.
 // ?engine=openrouter uses a fast model through OpenRouter: about 0.5 s per request, weaker HTML.
 const CLAUDE = q.get('engine') !== 'openrouter'
-const MODEL = q.get('model') || (CLAUDE ? 'claude-opus-5-5' : 'openai/gpt-oss-120b')
+let MODEL = q.get('model') || (CLAUDE ? localStorage.getItem('verbally.model') || 'claude-opus-5-5' : 'openai/gpt-oss-120b') // the stored one is the choice in the settings of the bar
 // The default provider belongs to the default model. Another model gets any provider unless ?provider= names one.
 const PROVIDER = q.get('provider') || (q.get('model') ? '' : 'cerebras')
 // Measured with Opus 5.5 on one hero section: medium thinks 10 s before the first token (22 s in all), low starts after 1.7 s (8-10 s in all).

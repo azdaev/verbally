@@ -117,7 +117,37 @@ function drawTrail() {
 // Then Verbally's own microphone stays off for the keys: ⌥ only points, Space is a plain key. A click on the microphone still starts it.
 // Tested with Hex: its paste reaches a page that has no text field in focus.
 // The server finds a running dictation app (GET /api/setup). ?speech=mic or ?speech=dictation in the address wins.
+let LANG = q.get('lang') || localStorage.getItem('verbally.lang') || 'en-US' // for the recognizer of Chrome; Soniox and a dictation app find the language themselves
 let dictation = q.get('speech') === 'dictation'
+let talk = {} // { app, key, code, recognizer } from the server: the dictation app that runs, and its talk key
+
+// Settings (the gear): who listens, the language of the microphone, the model, and the keys.
+// A choice stays in the browser. ?speech=, ?lang= and ?model= in the address win over it.
+const menu = $('menu'), set = name => [...menu.querySelectorAll(`[name=${name}]`)]
+$('more').onclick = () => menu.showModal()
+menu.onclick = e => { if (e.target === menu) menu.close() } // a click on the dark part around the window. No return value: `false` from onclick cancels the click on a radio button
+const keys = (...parts) => parts.map(p => /^[a-z ]+$/.test(p) ? p : Object.assign(document.createElement('kbd'), { textContent: p })) // plain words stay text
+const MODELS = { 'claude-opus-5-5': 'Opus gives the best result and uses more of your Claude plan.', 'claude-sonnet-5-5': 'Sonnet is lighter on your Claude plan.' }
+function showSettings() {
+  for (const r of set('speech')) r.checked = r.value === (dictation ? 'dictation' : 'mic')
+  for (const r of set('model')) r.checked = r.value === MODEL
+  $('m-model-how').textContent = MODELS[MODEL] || 'From the address: ' + MODEL
+  const [lang] = set('lang')
+  if (![...lang.options].some(o => o.value === LANG)) lang.add(new Option(LANG, LANG))
+  lang.value = LANG
+  lang.disabled = dictation || talk.recognizer === 'Soniox' // only the recognizer of Chrome needs a language
+  $('m-talk').replaceChildren(...(dictation ? keys('hold ', talk.key || 'the key of your app') : keys('hold ', '⌥', ' or ', 'Space')))
+  $('mic').dataset.tip = dictation ? "Verbally's own microphone · click" : 'Talk · hold ⌥ Option or Space'
+}
+showSettings()
+menu.onchange = e => {
+  const { name, value } = e.target
+  localStorage.setItem('verbally.' + name, value)
+  if (name === 'speech') dictation = value === 'dictation'
+  if (name === 'lang') LANG = value
+  if (name === 'model') MODEL = value // the server starts an engine process for the new model at the next phrase
+  showSettings()
+}
 fetch(VB + '/api/setup').then(r => r.json()).then(d => {
   const once = name => !sessionStorage.getItem(name) && (sessionStorage.setItem(name, 1), true) // once for a tab, not at each reload after an edit
   if (d.update && once('verbally.update')) { // a newer release: say it, change nothing
@@ -125,17 +155,25 @@ fetch(VB + '/api/setup').then(r => r.json()).then(d => {
     c.querySelector('b').textContent = `Verbally ${d.update} is out`
     leave(c, 9000)
   }
-  if (q.get('speech')) return
-  dictation = d.speech === 'dictation'
-  if (!dictation) return
-  $('mic').dataset.tip = "Verbally's own microphone · click"
-  if (!once('verbally.told')) return
+  talk = d
+  if (d.app) {
+    $('m-app').textContent = d.app
+    $('m-app-how').textContent = 'Your dictation app, with its own key.'
+    set('speech')[0].disabled = false
+  }
+  $('m-others').textContent = (d.app ? 'Also: ' : '') + d.others + '. Start one, and it shows here.'
+  $('m-mic-how').textContent = d.recognizer === 'Soniox' ? 'Soniox, with your key.' : "Chrome's recognizer. The audio goes to Google."
+  $('m-ver').textContent = 'Verbally ' + d.version + (d.update ? ` · ${d.update} is out. Run: verbally update` : '')
+  // Who wins: ?speech= in the address, then the user's choice in the settings, then what the server found.
+  dictation = (q.get('speech') || (d.app && localStorage.getItem('verbally.speech')) || d.speech) === 'dictation'
+  showSettings()
+  if (!dictation || !once('verbally.told')) return
   const c = chip(d.key ? `Hold ${d.key}, point and talk` : 'Use its key, point with the mouse and talk', 'done')
   c.querySelector('b').textContent = 'Speech: ' + (d.app || 'your dictation app')
   leave(c, 7000)
 }).catch(() => {})
 addEventListener('paste', e => {
-  if (!dictation) return
+  if (!dictation || menu.open) return
   // A paste into a text field of the app is the app's own business.
   if (e.target.closest?.('input, textarea, [contenteditable]') && !e.target.closest('#bar')) return
   const text = (e.clipboardData?.getData('text/plain') || '').trim()
@@ -148,7 +186,6 @@ addEventListener('paste', e => {
 }, true)
 
 // Microphone. Soniox gives fast partial text. A phrase ends when the talk key goes up or the microphone goes off. Without a working Soniox key the browser recognizer takes over.
-const LANG = q.get('lang') || 'en-US' // for the browser recognizer; Soniox hears English and Russian
 let on = false, stopMic = () => {}
 async function toggleMic() {
   on = !on
@@ -311,14 +348,22 @@ document.onkeyup = e => {
 }
 
 // ⌥ Option held: point and talk with one key. The 0.2 s wait keeps shortcuts like ⌥⌘I and ⌥-letters from switching the microphone on.
-let cmdTimer, cmdTalk = false
+let cmdTimer, cmdTalk = false, deaf
 addEventListener('keydown', e => {
   clearTimeout(cmdTimer)
   primed?.then(p => p.rec.stop()) // another key came: this is a shortcut, not speech
   primed = null
-  if (e.key !== 'Alt' || on) return
+  if (e.key !== 'Alt' || on || menu.open) return
   if (!e.repeat) unpoint() // a new press starts a new pointing
-  if (dictation) return // the dictation app listens; here ⌥ only points
+  if (dictation) { // the dictation app listens; here ⌥ only points
+    // The other ⌥ than the app's talk key draws the trail too, so it looks like speech goes in. Say that nobody listens.
+    if (talk.code && e.code !== talk.code && !e.repeat && !deaf?.isConnected) {
+      deaf = chip(`To talk, hold ${talk.key}. This ⌥ only points.`, 'err')
+      deaf.querySelector('b').textContent = talk.app + ' does not hear this key'
+      leave(deaf, 5000)
+    }
+    return
+  }
   primed = prime() // record from the key press, so the first word is kept during the 0.2 s wait
   primed.catch(() => {})
   cmdTimer = setTimeout(() => { cmdTalk = true; toggleMic() }, 200)

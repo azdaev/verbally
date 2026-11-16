@@ -40,6 +40,7 @@ No API keys. If a dictation app runs already (Hex, Handy, Wispr Flow), it does t
 - **It runs on your Claude Code subscription.** No API key, no extra bill.
 - **It writes into your real files.** Commit first.
 - **The engine is Claude Code with every tool allowed and no questions.** Nobody can click "approve" while they talk. Use it on projects that you trust.
+- **The gear on the bar** has the settings: who listens, the model, the keys.
 - **No project yet?** `verbally` with no folder builds a new page from nothing, by voice.
 
 Settings, security and the install by hand: [docs/DETAILS.md](docs/DETAILS.md). License: [MIT](LICENSE).

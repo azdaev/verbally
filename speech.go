@@ -36,6 +36,40 @@ func dictationIn(programs string) (name, key string) {
 	return "", ""
 }
 
+// hexKey reads the user's talk key from the settings of Hex. name is for the hint ("right ⌥").
+// code is the browser's name of the key when it is one ⌥ of one side ("AltRight"): then the page can tell
+// a press of the other ⌥, which points but which Hex does not hear.
+func hexKey(settings []byte) (name, code string) {
+	var s struct {
+		Hotkey struct {
+			Keys []struct{ Modifier, Side, Label string }
+		} `json:"dictation_hotkey"`
+	}
+	if json.Unmarshal(settings, &s) != nil {
+		return "", ""
+	}
+	keys := s.Hotkey.Keys
+	signs := map[string]string{"option": "⌥", "command": "⌘", "control": "⌃", "shift": "⇧"}
+	var parts []string
+	for _, k := range keys {
+		part := k.Label
+		if k.Modifier != "" {
+			part = signs[k.Modifier]
+			if part == "" {
+				part = k.Modifier
+			}
+			if k.Side == "left" || k.Side == "right" {
+				part = k.Side + " " + part
+			}
+		}
+		parts = append(parts, part)
+	}
+	if len(keys) == 1 && keys[0].Modifier == "option" {
+		code = map[string]string{"left": "AltLeft", "right": "AltRight"}[keys[0].Side]
+	}
+	return strings.Join(parts, " "), code
+}
+
 // speech tells who listens now: "dictation" with the name of the app, or "mic".
 func speech() map[string]string {
 	out, _ := exec.Command("ps", "-axo", "comm=").Output()
@@ -47,13 +81,32 @@ func speech() map[string]string {
 			mode = "dictation"
 		}
 	}
-	return map[string]string{"speech": mode, "app": app, "key": key}
+	who := map[string]string{"speech": mode, "app": app, "key": key}
+	var others []string // the known apps that do not run now: the settings show them, so the user sees that they work too
+	for _, a := range dictationApps {
+		if a.name != app {
+			others = append(others, a.name)
+		}
+	}
+	who["others"] = strings.Join(others, ", ")
+	if app == "Hex" {
+		dir, _ := os.UserHomeDir()
+		settings, _ := os.ReadFile(filepath.Join(dir, "Library/Application Support/hex/settings.json"))
+		if name, code := hexKey(settings); name != "" {
+			who["key"], who["code"] = name, code
+		}
+	}
+	return who
 }
 
 // setup tells the page who listens, and the tag of a newer release when there is one.
 func setup(w http.ResponseWriter, r *http.Request) {
 	out := speech()
 	out["version"] = version
+	out["recognizer"] = "Chrome" // of Verbally's own microphone
+	if os.Getenv("SONIOX_API_KEY") != "" {
+		out["recognizer"] = "Soniox"
+	}
 	if tag, ok := newTag.Load().(string); ok {
 		out["update"] = tag
 	}

@@ -63,13 +63,13 @@ Verbally never updates by itself. At start it asks GitHub for the number of the 
 
 Verbally needs your words as text. There are three ways, and it picks one by itself:
 
-1. **Your dictation app.** If Hex, Handy, Wispr Flow, Superwhisper or VoiceInk runs, it listens with its own local model and pastes the text. Verbally takes the pasted text as the phrase. `⌥ Option` only points then; the microphone of Verbally stays off. Use the key of your dictation app. With Hex that key is `⌥` by default, so one key points and talks.
+1. **Your dictation app.** If Hex, Handy, Wispr Flow, Superwhisper or VoiceInk runs, it listens with its own local model and pastes the text. Verbally takes the pasted text as the phrase. `⌥ Option` only points then; the microphone of Verbally stays off. Use the key of your dictation app. With Hex, Verbally reads that key from the settings of Hex and names it: on the bar at start and in `verbally doctor`. If it is one `⌥` (for example the right one), that key points and talks. The other `⌥` only points, and the bar says so.
 2. **Soniox**, with `SONIOX_API_KEY`: the words show while you talk.
 3. **The recognizer of Chrome**: no key, weaker, and the audio goes to Google.
 
 No pointing with `⌥`? Then the phrase is about the element under the mouse.
 
-`verbally doctor` tells which one is in use. `VERBALLY_SPEECH=mic` or `VERBALLY_SPEECH=dictation` sets it by hand, and so does `?speech=mic` in the address. A click on the microphone of the bar always starts Verbally's own microphone.
+The gear on the bar opens the settings: who listens, the language for the recognizer of Chrome, the model (Opus or Sonnet), and the keys. A choice stays in the browser. `verbally doctor` tells which one is in use. `VERBALLY_SPEECH=mic` or `VERBALLY_SPEECH=dictation` sets it by hand, and so does `?speech=mic` in the address. A click on the microphone of the bar always starts Verbally's own microphone.
 
 Tested with Hex. The other apps are found by name and paste in the same way; tell us when one does not work.
 

@@ -50,6 +50,65 @@ canvas.sweep { position: fixed; z-index: 10; pointer-events: none; }
                          transition: opacity .12s, translate .12s, filter .12s; }
 #bar [data-tip]:hover::after { opacity: 1; translate: 0 0; filter: none; transition: opacity .25s var(--vb-ease) .45s, translate .25s var(--vb-ease) .45s, filter .25s var(--vb-ease) .45s; }
 
+/* Settings: a window in the middle of the page. A native dialog: Esc closes it, the page behind it is out of reach, and it sits above the app's own dialogs.
+   It comes from 96% of its size and leaves faster than it comes. Only opacity and scale move. */
+#menu { position: fixed; inset: 0; margin: auto; box-sizing: border-box; width: min(440px, calc(100vw - 32px)); max-height: calc(100vh - 48px); padding: 0; border: 0; border-radius: 22px;
+        overflow: auto; background: #fff; box-shadow: 0 0 0 .5px rgba(0, 0, 0, .1), 0 24px 64px -12px rgba(0, 0, 0, .35), 0 4px 12px rgba(0, 0, 0, .08);
+        color: var(--vb-fg); color-scheme: light; font: 500 14px/1.4 'Public Sans', ui-sans-serif, system-ui, sans-serif; text-align: left; -webkit-font-smoothing: antialiased;
+        opacity: 0; scale: .96; transition: opacity .15s var(--vb-ease), scale .15s var(--vb-ease), display .15s allow-discrete, overlay .15s allow-discrete; }
+#menu[open] { opacity: 1; scale: 1; transition-duration: .25s; }
+#menu::backdrop { background: rgba(10, 10, 10, 0); transition: background .15s, display .15s allow-discrete, overlay .15s allow-discrete; }
+#menu[open]::backdrop { background: rgba(10, 10, 10, .32); transition-duration: .25s; }
+@starting-style { #menu[open] { opacity: 0; scale: .96; } #menu[open]::backdrop { background: rgba(10, 10, 10, 0); } }
+#menu form { margin: 0; padding: 20px 22px 16px; }
+#menu header { display: flex; align-items: center; justify-content: space-between; margin: 0 0 4px; }
+#menu h2 { margin: 0; font: inherit; font-size: 18px; letter-spacing: -.01em; color: var(--vb-strong); outline: 0; }
+#menu .x { display: grid; place-items: center; width: 32px; height: 32px; margin: -4px -8px 0 0; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--vb-fg); cursor: pointer;
+           transition: background .15s, color .15s, scale .16s var(--vb-ease); }
+#menu .x svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; }
+#menu .x:active, #menu .seg label:active span { scale: .97; }
+#menu :is(.x, select, a):focus-visible, #menu input:focus-visible + span { outline: 2px solid color-mix(in srgb, var(--vb-accent) 45%, transparent); outline-offset: 2px; }
+#menu section { padding: 16px 0; border-bottom: 1px solid rgba(0, 0, 0, .07); }
+#menu h3 { margin: 0; font: inherit; font-size: 14px; color: var(--vb-strong); }
+#menu p { margin: 2px 0 10px; font-size: 13px; }
+#menu b { display: block; font-weight: 500; color: var(--vb-strong); }
+#menu small { display: block; margin-top: 1px; font-size: 13px; }
+/* One way to listen: a whole row to click, with the dot of a radio button. */
+#menu .opt { display: flex; align-items: flex-start; gap: 12px; margin: 0 0 6px; padding: 11px 12px; border-radius: 14px; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .09); cursor: pointer;
+             transition: background .15s, box-shadow .15s; }
+#menu .opt:has(:checked) { background: rgba(0, 0, 0, .035); box-shadow: inset 0 0 0 1.5px var(--vb-strong); }
+#menu .opt:has(:disabled) { opacity: .5; cursor: default; }
+#menu .opt input { flex: none; appearance: none; -webkit-appearance: none; width: 18px; height: 18px; margin: 1px 0 0; border: 1.5px solid #c2c2c2; border-radius: 50%; background: #fff;
+                   transition: border-color .15s, box-shadow .15s; }
+#menu .opt input:checked { border-color: var(--vb-strong); box-shadow: inset 0 0 0 3.5px #fff, inset 0 0 0 9px var(--vb-strong); }
+#menu .also { margin: -1px 0 8px; padding: 0 12px 0 42px; font-size: 12px; color: var(--vb-faint); }
+#menu .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 10px 0 0; padding: 0 2px 0 12px; font-size: 13px; transition: opacity .15s; }
+#menu .row:has(:disabled) { opacity: .4; }
+#menu select { padding: 7px 10px; border: 0; border-radius: 9px; background-color: rgba(0, 0, 0, .06); color: var(--vb-strong); font: inherit; font-size: 13px; cursor: pointer; }
+/* The model: two halves, and a white plate that slides under the chosen one. */
+#menu .seg { position: relative; display: grid; grid-template-columns: 1fr 1fr; padding: 3px; border-radius: 12px; background: rgba(0, 0, 0, .06); }
+#menu .seg::before { content: ''; position: absolute; top: 3px; bottom: 3px; left: 3px; width: calc(50% - 3px); border-radius: 9px; background: #fff;
+                     box-shadow: 0 0 0 .5px rgba(0, 0, 0, .08), 0 1px 3px rgba(0, 0, 0, .12); transition: translate .22s var(--vb-ease); }
+#menu .seg:has(label:nth-child(2) :checked)::before { translate: 100% 0; }
+#menu .seg:not(:has(:checked))::before { opacity: 0; }
+#menu .seg label { position: relative; cursor: pointer; }
+#menu .seg input { position: absolute; opacity: 0; pointer-events: none; }
+#menu .seg span { display: block; padding: 8px 0; border-radius: 9px; text-align: center; transition: color .15s, scale .16s var(--vb-ease); }
+#menu .seg :checked + span { color: var(--vb-strong); }
+#menu dl { display: grid; grid-template-columns: 1fr auto; gap: 9px 16px; align-items: center; margin: 10px 0 0; font-size: 13px; }
+#menu dt { color: var(--vb-strong); }
+#menu dd { margin: 0; text-align: right; }
+#menu kbd { display: inline-block; min-width: 12px; margin: 0 1px; padding: 2px 6px; border-radius: 6px; background: rgba(0, 0, 0, .06); box-shadow: inset 0 -1px 0 rgba(0, 0, 0, .1);
+            color: var(--vb-strong); font: inherit; font-size: 12px; text-align: center; }
+#menu footer { display: flex; justify-content: space-between; gap: 12px; padding-top: 14px; font-size: 12px; color: var(--vb-faint); }
+#menu a { color: var(--vb-fg); text-decoration: none; border-radius: 4px; }
+@media (hover: hover) and (pointer: fine) {
+  #menu .x:hover { background: rgba(0, 0, 0, .06); color: var(--vb-strong); }
+  #menu .opt:not(:has(:checked, :disabled)):hover { background: rgba(0, 0, 0, .025); }
+  #menu select:hover { background-color: rgba(0, 0, 0, .09); }
+  #menu .seg label:hover span, #menu a:hover { color: var(--vb-strong); }
+}
+
 /* Microphone: the one main control. Off it is a quiet grey disc. On it is red with a slow ring: the sign for "recording". */
 #mic { background: rgba(0, 0, 0, .05) !important; color: var(--vb-strong) !important; }
 #mic:hover { background: rgba(0, 0, 0, .1) !important; }
@@ -145,4 +204,7 @@ canvas.sweep { position: fixed; z-index: 10; pointer-events: none; }
   #bar, #tasks .ph, #pt, #canvas > div.busy:empty, #canvas .glow, #mic.on, #bar.busy ~ #tasks .ph:not(.done, .err, .skip) { animation: none; }
   :is(#canvas, .vb-code) .glow { box-shadow: 0 0 0 2px rgba(255, 255, 255, .95), 0 0 0 4px rgba(99, 102, 241, .85); }
   #say, #tools, #tools.open, #bar button { transition: none; }
+  #menu, #menu[open] { scale: 1; } /* the window only fades */
+  #menu .seg::before { transition: none; }
+  @starting-style { #menu[open] { scale: 1; } }
 }

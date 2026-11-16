@@ -169,7 +169,11 @@ func doctor() int {
 		fmt.Printf("no       %-11s macOS only: the model gets no picture of the screen here\n", "screenshot")
 	}
 	if s := speech(); s["app"] != "" {
-		fmt.Printf("ok       %-11s %s runs: it listens, and Verbally takes its text (speech: %s)\n", "dictation", s["app"], s["speech"])
+		key := ""
+		if s["key"] != "" {
+			key = ". To talk: hold " + s["key"]
+		}
+		fmt.Printf("ok       %-11s %s runs: it listens, and Verbally takes its text (speech: %s)%s\n", "dictation", s["app"], s["speech"], key)
 	} else {
 		fmt.Printf("no       %-11s optional: a dictation app with a local model (Hex, Handy, Wispr Flow). Without one Verbally's own microphone works\n", "dictation")
 	}

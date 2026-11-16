@@ -61,7 +61,7 @@ Do not change the app's files, config or `package.json`. Verbally needs no chang
 Give the user these lines:
 
 - The app is open at `http://localhost:5180` with a small bar in the corner.
-- With a dictation app (step 3): put the mouse on an element, hold the key of that app and say a change, for example "make this heading bigger". Hold `⌥ Option` and move the mouse to point at several elements.
+- With a dictation app (step 3): put the mouse on an element, hold the key of that app (the `dictation` line of `verbally doctor` names it for Hex) and say a change, for example "make this heading bigger". Hold `⌥ Option` and move the mouse to point at several elements.
 - Without one: hold `⌥ Option` and say the change. Chrome asks for the microphone once: allow it. Move the mouse while you hold `⌥ Option` to point at an element.
 - `⌘Z` puts a change back.
 - Verbally writes into the source files. Commit your work first.

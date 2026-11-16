@@ -22,8 +22,41 @@
     <button id="fwd" data-tip="Redo · ⇧⌘Z" aria-label="Redo" disabled><svg viewBox="0 0 18 18"><path d="m11.5 4 3 3-3 3"/><path d="M14.5 7h-7a4 4 0 0 0 0 8h3"/></svg></button>
     <button id="clear" data-tip="Clear the page" aria-label="Clear the page" disabled><svg viewBox="0 0 18 18"><path d="M3.5 5h11M7 5V3.25h4V5M5 5l.6 9.75h6.8L13 5M7.6 8v4M10.4 8v4"/></svg></button>
   </div>
+  <button id="more" data-tip="Settings" aria-label="Settings"><svg viewBox="0 0 24 24" stroke-width="2.1"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></button>
 </div>
 <div id="tasks" aria-live="polite"></div>
+
+<!-- Settings: a window over the page. A choice is kept in the browser (js/input.js). -->
+<dialog id="menu" aria-labelledby="m-title">
+  <form method="dialog">
+    <header><h2 id="m-title" tabindex="-1" autofocus>Settings</h2><button class="x" aria-label="Close"><svg viewBox="0 0 18 18"><path d="m4.5 4.5 9 9M13.5 4.5l-9 9"/></svg></button></header>
+    <section>
+      <h3>Speech</h3>
+      <p>Who listens when you talk.</p>
+      <label class="opt"><input type="radio" name="speech" value="dictation" disabled><span><b id="m-app">Your dictation app</b><small id="m-app-how">None runs now.</small></span></label>
+      <p class="also" id="m-others">Hex, Handy, Wispr Flow, Superwhisper and VoiceInk work: start one, and it shows here.</p>
+      <label class="opt"><input type="radio" name="speech" value="mic" checked><span><b>Verbally's microphone</b><small id="m-mic-how">Chrome's recognizer. The audio goes to Google.</small></span></label>
+      <label class="row" id="m-lang-row"><span>Language you speak</span><select name="lang">
+        <option value="en-US">English</option><option value="ru-RU">Русский</option><option value="es-ES">Español</option><option value="de-DE">Deutsch</option>
+        <option value="fr-FR">Français</option><option value="pt-BR">Português</option><option value="zh-CN">中文</option><option value="ja-JP">日本語</option></select></label>
+    </section>
+    <section>
+      <h3>Model</h3>
+      <p id="m-model-how">Claude writes the changes.</p>
+      <div class="seg"><label><input type="radio" name="model" value="claude-opus-5-5"><span>Opus</span></label><label><input type="radio" name="model" value="claude-sonnet-5-5"><span>Sonnet</span></label></div>
+    </section>
+    <section>
+      <h3>Keys</h3>
+      <dl>
+        <dt>Talk</dt><dd id="m-talk">hold <kbd>⌥</kbd> or <kbd>Space</kbd></dd>
+        <dt>Point at a thing</dt><dd>hold <kbd>⌥</kbd> and move the mouse</dd>
+        <dt>Undo</dt><dd><kbd>⌘</kbd><kbd>Z</kbd></dd>
+        <dt>Redo</dt><dd><kbd>⇧</kbd><kbd>⌘</kbd><kbd>Z</kbd></dd>
+      </dl>
+    </section>
+    <footer><span id="m-ver">Verbally</span><a href="https://github.com/azdaev/verbally/blob/main/docs/DETAILS.md" target="_blank" rel="noopener">Docs ↗</a></footer>
+  </form>
+</dialog>
 
 <script src="js/core.js"></script>
 <script src="js/page.js"></script>

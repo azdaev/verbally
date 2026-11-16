@@ -13,3 +13,4 @@ dist/
 skills-lock.json
 /*.png
 .DS_Store
+.agents/
