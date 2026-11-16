@@ -5,6 +5,7 @@
 //
 //	main.go    start, routes, telemetry.jsonl, saved pages, the Soniox key
 //	local.go   the guard of the port: only pages of this machine get an answer
+//	speech.go  who listens: a dictation app that runs already, or Verbally's own microphone
 //	claude.go  the Claude Code engine: a spare process, the cap on parallel work, MCP and tool setup
 //	triage.go  Jev: filler, look, versions, and which section a phrase goes to
 //	screen.go  a screenshot of the page window for "this looks bad"
@@ -164,6 +165,11 @@ func doctor() int {
 	} else {
 		fmt.Printf("no       %-11s macOS only: the model gets no picture of the screen here\n", "screenshot")
 	}
+	if s := speech(); s["app"] != "" {
+		fmt.Printf("ok       %-11s %s runs: it listens, and Verbally takes its text (speech: %s)\n", "dictation", s["app"], s["speech"])
+	} else {
+		fmt.Printf("no       %-11s optional: a dictation app with a local model (Hex, Handy, Wispr Flow). Without one Verbally's own microphone works\n", "dictation")
+	}
 	for _, k := range [][2]string{{"SONIOX_API_KEY", "better speech recognition; without it the recognizer of Chrome works"},
 		{"TYPESAFE_API_KEY", "Jev, the fast model that sorts phrases; without it key-word rules work"},
 		{"OPENROUTER_API_KEY", "?engine=openrouter"}} {
@@ -239,6 +245,7 @@ func main() {
 	http.HandleFunc("POST /api/claude", claudeChat)
 	http.HandleFunc("GET /photo", photo)
 	http.HandleFunc("POST /api/triage", triage)
+	http.HandleFunc("GET /api/setup", setup)
 	go winBin() // build the window finder now, not at the first screenshot
 	http.HandleFunc("POST /api/page", func(w http.ResponseWriter, r *http.Request) {
 		name := filepath.Base(r.URL.Query().Get("name")) // Base keeps the file inside pages/

@@ -68,7 +68,16 @@ document.onmousemove = e => {
   const name = els.length > 1 ? els.length + ' elements' : el.innerText.trim().slice(0, 18) || el.localName
   if ($('pt').textContent !== name) $('pt').textContent = name
   clearTimeout(pointTimer)
-  pointTimer = setTimeout(() => on || unpoint(), 8000) // nobody spoke: forget it. While the microphone is on, the user still talks about it
+  // Nobody spoke: forget it. While the microphone is on, the user still talks about it.
+  // A dictation app gives its text only after the speech, so there the pointer waits longer.
+  pointTimer = setTimeout(() => on || unpoint(), dictation ? 30000 : 8000)
+}
+// The place of the mouse, with or without ⌥: a phrase with no pointer is about the element under the mouse.
+let mouse = null
+addEventListener('mousemove', e => { mouse = { x: e.clientX, y: e.clientY } }, true)
+const underMouse = () => {
+  const el = mouse && document.elementFromPoint(mouse.x, mouse.y)
+  return el && !el.closest('#bar, #tasks, #pick') ? el : null
 }
 
 function unpoint() {
@@ -103,6 +112,34 @@ function drawTrail() {
   }
   if (dots.length) requestAnimationFrame(drawTrail)
 }
+
+// Dictation: the user's own dictation app (Hex, Handy, Wispr Flow) listens, and its text arrives as a paste (⌘V).
+// Then Verbally's own microphone stays off for the keys: ⌥ only points, Space is a plain key. A click on the microphone still starts it.
+// Tested with Hex: its paste reaches a page that has no text field in focus.
+// The server finds a running dictation app (GET /api/setup). ?speech=mic or ?speech=dictation in the address wins.
+let dictation = q.get('speech') === 'dictation'
+if (!q.get('speech')) fetch(VB + '/api/setup').then(r => r.json()).then(d => {
+  dictation = d.speech === 'dictation'
+  if (!dictation) return
+  $('mic').dataset.tip = "Verbally's own microphone · click"
+  if (sessionStorage.getItem('verbally.told')) return // once for a tab, not at each reload after an edit
+  sessionStorage.setItem('verbally.told', 1)
+  const c = chip(d.key ? `Hold ${d.key}, point and talk` : 'Use its key, point with the mouse and talk', 'done')
+  c.querySelector('b').textContent = 'Speech: ' + (d.app || 'your dictation app')
+  leave(c, 7000)
+}).catch(() => {})
+addEventListener('paste', e => {
+  if (!dictation) return
+  // A paste into a text field of the app is the app's own business.
+  if (e.target.closest?.('input, textarea, [contenteditable]') && !e.target.closest('#bar')) return
+  const text = (e.clipboardData?.getData('text/plain') || '').trim()
+  // ponytail: any ⌘V outside a text field counts as speech. The size limit keeps a pasted file out; undo covers the rest.
+  if (!text || text.length > 1000) return
+  e.preventDefault()
+  e.stopPropagation()
+  tele({ event: 'dictation', chars: text.length })
+  hear(text, true)
+}, true)
 
 // Microphone. Soniox gives fast partial text. A phrase ends when the talk key goes up or the microphone goes off. Without a working Soniox key the browser recognizer takes over.
 const LANG = q.get('lang') || 'en-US' // for the browser recognizer; Soniox hears English and Russian
@@ -253,6 +290,7 @@ $('canvas')?.addEventListener('error', e => {
 let downAt = 0, wasOn = false
 document.onkeydown = e => {
   if (e.code !== 'Space' || e.target !== document.body) return
+  if (dictation) { if (e.altKey) e.preventDefault(); return } // a dictation key like ⌥ Space must not scroll the page
   e.preventDefault()
   if (e.repeat) return
   downAt = performance.now()
@@ -274,6 +312,7 @@ addEventListener('keydown', e => {
   primed = null
   if (e.key !== 'Alt' || on) return
   if (!e.repeat) unpoint() // a new press starts a new pointing
+  if (dictation) return // the dictation app listens; here ⌥ only points
   primed = prime() // record from the key press, so the first word is kept during the 0.2 s wait
   primed.catch(() => {})
   cmdTimer = setTimeout(() => { cmdTalk = true; toggleMic() }, 200)

@@ -28,6 +28,11 @@ verbally doctor
 
 It must end with `Ready`. A line that starts with `MISSING` names what to install. Lines that start with `no` are optional parts: do not install them unless the user asks.
 
+Read the `dictation` line. It tells who will listen to the user:
+
+- `ok dictation <app> runs`: Verbally uses that app. Tell the user in step 6.
+- `no dictation`: ask the user one question: "Install Hex for speech (free, a local model, about 700 MB), or use the recognizer of Chrome (no install, weaker)?" Only on a yes: `brew install --cask anomalyco/tap/hex` on macOS, then the user opens Hex once and lets it download its model.
+
 ## 4. Find the app
 
 Code mode needs a **Vite + React** app: a folder whose `package.json` lists `vite` and `react`, with `node_modules` installed.
@@ -56,8 +61,8 @@ Do not change the app's files, config or `package.json`. Verbally needs no chang
 Give the user these lines:
 
 - The app is open at `http://localhost:5180` with a small bar in the corner.
-- Hold `⌥ Option` and say a change, for example "make this heading bigger". Chrome asks for the microphone once: allow it.
-- Move the mouse while you hold `⌥ Option` to point at an element.
+- With a dictation app (step 3): put the mouse on an element, hold the key of that app and say a change, for example "make this heading bigger". Hold `⌥ Option` and move the mouse to point at several elements.
+- Without one: hold `⌥ Option` and say the change. Chrome asks for the microphone once: allow it. Move the mouse while you hold `⌥ Option` to point at an element.
 - `⌘Z` puts a change back.
 - Verbally writes into the source files. Commit your work first.
 - The engine runs Claude Code with all tools allowed and no questions. Details: `docs/DETAILS.md` in the repository.

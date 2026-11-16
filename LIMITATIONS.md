@@ -48,6 +48,7 @@ Result: the element alone is not enough; with its neighbours the search is close
 
 ## Every mode
 
+- **A dictation app: three rough edges.** Any `⌘V` outside a text field counts as speech while a dictation app runs (up to 1000 letters). The marks ① ② get no number in the words, because the text arrives after the speech. Only Hex is tested.
 - **Voice only.** The bar has no text field. In an office or a café the user cannot talk.
 - **macOS only: the pictures for the model.** "This looks bad" and the pointer marks send a part of the screen (`screencapture`, `swiftc`). On Linux the model gets the HTML and the speech, no picture.
 - **Windows: not supported.** The engine code uses Unix process groups.

@@ -26,7 +26,7 @@ That is all. Claude installs it, starts it, and opens your app with a small bar 
 - **A Vite + React app.** Other stacks: [LIMITATIONS.md](LIMITATIONS.md).
 - **Chrome**, **Node**, and **macOS or Linux**.
 
-No API keys. Two optional keys make speech and routing better: see [docs/DETAILS.md](docs/DETAILS.md).
+No API keys. If a dictation app runs already (Hex, Handy, Wispr Flow), it does the listening and Verbally takes its text. More in [docs/DETAILS.md](docs/DETAILS.md).
 
 ## Say things like
 

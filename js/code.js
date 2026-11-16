@@ -1,6 +1,6 @@
 // Code mode: a phrase changes the source files of the element that the user points at, and the app's dev server shows the change.
 // The pointer (⌥ + mouse) finds data-vsrc="file:line" marks that code/dev.mjs puts on every JSX element.
-// Without a pointer the element in the middle of the screen counts. Each phrase is its own request; they run side by side.
+// Without a pointer the element under the mouse counts. Each phrase is its own request; they run side by side.
 
 fetch(VB + '/prompt-code.txt').then(r => r.text()).then(t => system = t) // `system` lives in core.js
 let spoke = null // the pointer that was there during this phrase
@@ -59,7 +59,9 @@ function hear(text, final) {
 async function change(cmd, pointed, el) {
   const t = await fetch(VB + '/api/triage', { method: 'POST', body: JSON.stringify({ text: cmd }) }).then(r => r.json()).catch(() => ({}))
   if (t.filler) return 0
-  const target = pointed?.els.at(-1) || document.elementFromPoint(innerWidth / 2, innerHeight / 2)
+  // No pointing with ⌥: the element under the mouse. No mouse yet: the middle of the screen.
+  const hover = !pointed && underMouse()?.closest('[data-vsrc]')
+  const target = pointed?.els.at(-1) || hover || document.elementFromPoint(innerWidth / 2, innerHeight / 2)
   // The files of the pointed element, then the file of each mark: "make this ① like that ②" can span two components.
   const paths = [...new Set([...files(target), ...(pointed?.marks || []).flatMap(m => files(m.el).slice(0, 1))])].slice(0, 4)
   if (!paths.length) throw new Error('No source code here. Hold ⌥ Option and point at the app.')
@@ -71,7 +73,7 @@ async function change(cmd, pointed, el) {
     const texts = await Promise.all(paths.map(read))
     const user = 'Files:\n' + paths.map((p, i) => `--- ${p}\n${texts[i]}`).join('\n\n')
       + (said.length ? `\n\nSaid before, oldest first. Each was done. When the new speech repeats one, that change did not work: do it another way, and enough to be visible:\n${said.join('\n')}` : '')
-      + `\n\nPointer:\n${pointed?.text || '(none; the element in the middle of the screen: ' + target.outerHTML.slice(0, 300) + ')'}\n\nSpeech:\n${cmd}`
+      + `\n\nPointer:\n${pointed?.text || `(the user held no key to point. The element ${hover ? 'under the mouse' : 'in the middle of the screen'}: ${bare(target)})`}\n\nSpeech:\n${cmd}`
     if (t.versions) return await versions(cmd, user, Object.fromEntries(paths.map((p, i) => [p, texts[i]])), ac.signal, el)
     const reply = await ask(user, ac.signal, name => el.querySelector('b').textContent = name, shots(pointed?.zone, pointed?.marks))
     if (/^\s*(<!--[\s\S]*?-->\s*)?SAME\s*$/.test(reply)) return 0

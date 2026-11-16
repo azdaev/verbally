@@ -49,6 +49,20 @@ verbally
 
 An empty page opens at `http://127.0.0.1:8787`. Say "a landing page for a coffee roaster", then go on: "add prices", "make the whole site darker", "a photo of beans here". The page is a list of sections; each phrase goes to the section that you name, point at or look at.
 
+## Speech: who listens
+
+Verbally needs your words as text. There are three ways, and it picks one by itself:
+
+1. **Your dictation app.** If Hex, Handy, Wispr Flow, Superwhisper or VoiceInk runs, it listens with its own local model and pastes the text. Verbally takes the pasted text as the phrase. `⌥ Option` only points then; the microphone of Verbally stays off. Use the key of your dictation app. With Hex that key is `⌥` by default, so one key points and talks.
+2. **Soniox**, with `SONIOX_API_KEY`: the words show while you talk.
+3. **The recognizer of Chrome**: no key, weaker, and the audio goes to Google.
+
+No pointing with `⌥`? Then the phrase is about the element under the mouse.
+
+`verbally doctor` tells which one is in use. `VERBALLY_SPEECH=mic` or `VERBALLY_SPEECH=dictation` sets it by hand, and so does `?speech=mic` in the address. A click on the microphone of the bar always starts Verbally's own microphone.
+
+Tested with Hex. The other apps are found by name and paste in the same way; tell us when one does not work.
+
 ## Settings
 
 All keys are optional. Set them as environment variables before you start `verbally`.
@@ -59,6 +73,7 @@ All keys are optional. Set them as environment variables before you start `verba
 | `TYPESAFE_API_KEY` | Jev, a fast yes/no model from [Typesafe](https://typesafe.ai). It drops filler ("uh, okay") and sends each phrase to the right section. Without it key-word rules work. |
 | `OPENROUTER_API_KEY` | A second engine for page mode: add `?engine=openrouter` to the address. Faster, weaker HTML. |
 | `VERBALLY_WORKERS` | How many Claude processes may work at the same time. Default 4. |
+| `VERBALLY_SPEECH` | `mic` or `dictation`: who listens. Default: `dictation` when a dictation app runs. See "Speech" above. |
 | `VERBALLY_PORT` | The port of the Verbally server. Default 8787. Set it when that port is taken, or to run a second Verbally. |
 | `VERBALLY_HOME` | Where Verbally keeps its files. Default `~/.verbally`. |
 | `BROWSER=none` | Do not open the browser at start. |
