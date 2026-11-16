@@ -67,6 +67,14 @@ Give the user these lines:
 - Verbally writes into the source files. Commit your work first.
 - The engine runs Claude Code with all tools allowed and no questions. Details: `docs/DETAILS.md` in the repository.
 
+## Update
+
+```sh
+verbally update
+```
+
+Then stop the running Verbally and start it again. A version before v0.2.2 has no `update`: repeat step 2 there.
+
 ## Remove
 
 ```sh

@@ -50,4 +50,12 @@ func speech() map[string]string {
 	return map[string]string{"speech": mode, "app": app, "key": key}
 }
 
-func setup(w http.ResponseWriter, r *http.Request) { json.NewEncoder(w).Encode(speech()) }
+// setup tells the page who listens, and the tag of a newer release when there is one.
+func setup(w http.ResponseWriter, r *http.Request) {
+	out := speech()
+	out["version"] = version
+	if tag, ok := newTag.Load().(string); ok {
+		out["update"] = tag
+	}
+	json.NewEncoder(w).Encode(out)
+}

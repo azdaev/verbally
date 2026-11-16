@@ -49,6 +49,16 @@ verbally
 
 An empty page opens at `http://127.0.0.1:8787`. Say "a landing page for a coffee roaster", then go on: "add prices", "make the whole site darker", "a photo of beans here". The page is a list of sections; each phrase goes to the section that you name, point at or look at.
 
+## Update
+
+```sh
+verbally update
+```
+
+It gets the newest release and puts it in the place of the old one. Your data in `~/.verbally` stays. A Verbally that runs keeps the old version until you start it again.
+
+Verbally never updates by itself. At start it asks GitHub for the number of the newest release, and tells you in the terminal and once on the bar when a newer one is out. `VERBALLY_NO_UPDATE_CHECK=1` switches that question off. A build from source updates with `go install github.com/azdaev/verbally@latest`.
+
 ## Speech: who listens
 
 Verbally needs your words as text. There are three ways, and it picks one by itself:
@@ -74,6 +84,7 @@ All keys are optional. Set them as environment variables before you start `verba
 | `OPENROUTER_API_KEY` | A second engine for page mode: add `?engine=openrouter` to the address. Faster, weaker HTML. |
 | `VERBALLY_WORKERS` | How many Claude processes may work at the same time. Default 4. |
 | `VERBALLY_SPEECH` | `mic` or `dictation`: who listens. Default: `dictation` when a dictation app runs. See "Speech" above. |
+| `VERBALLY_NO_UPDATE_CHECK` | `1`: do not ask GitHub for a newer release at start. |
 | `VERBALLY_PORT` | The port of the Verbally server. Default 8787. Set it when that port is taken, or to run a second Verbally. |
 | `VERBALLY_HOME` | Where Verbally keeps its files. Default `~/.verbally`. |
 | `BROWSER=none` | Do not open the browser at start. |
@@ -90,6 +101,7 @@ Read this before you run it.
 - **The server listens on `127.0.0.1:8787` only**, and it answers only to pages of your own machine. A web site that you have open cannot call it (`local.go`).
 - **In code mode the server reads and writes files inside the app folder that you named**, nowhere else.
 - **Your speech leaves the machine**: the audio goes to Soniox or to Chrome's recognizer, the text goes to Claude, and to Typesafe when you set that key.
+- **At start Verbally asks GitHub for the number of the newest release.** It sends nothing about you. `VERBALLY_NO_UPDATE_CHECK=1` switches it off.
 - **`~/.verbally/telemetry.jsonl` holds the text of your speech and timings.** It stays on your machine. `python3 stats.py ~/.verbally/telemetry.jsonl` gives a summary. Delete the file when you want.
 
 ## Work on Verbally

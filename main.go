@@ -5,6 +5,7 @@
 //
 //	main.go    start, routes, telemetry.jsonl, saved pages, the Soniox key
 //	local.go   the guard of the port: only pages of this machine get an answer
+//	update.go  the note about a new release, and `verbally update`
 //	speech.go  who listens: a dictation app that runs already, or Verbally's own microphone
 //	claude.go  the Claude Code engine: a spare process, the cap on parallel work, MCP and tool setup
 //	triage.go  Jev: filler, look, versions, and which section a phrase goes to
@@ -21,6 +22,7 @@
 //	verbally                      a new page, made by voice
 //	verbally <app folder> [port]  code mode: the Vite + React app in that folder, with the bar on top
 //	verbally doctor               what this machine has and what it lacks
+//	verbally update               get the newest release
 //
 // Work on Verbally itself: VERBALLY_DEV=1 go run . serves the files of this folder, not the copies inside the program.
 // Optional keys, as environment variables: SONIOX_API_KEY (speech), TYPESAFE_API_KEY (Jev), OPENROUTER_API_KEY (?engine=openrouter).
@@ -66,6 +68,7 @@ const usage = `Verbally: change a web page with your voice.
   verbally                      a new page, made by voice
   verbally <app folder> [port]  code mode: the Vite + React app in that folder, with the bar on top (port 5180)
   verbally doctor               what this machine has and what it lacks
+  verbally update               get the newest release
   verbally version
 
 Hold Option and talk. Point with the mouse while you hold it.
@@ -179,6 +182,11 @@ func doctor() int {
 			fmt.Printf("no       %-11s optional: %s\n", k[0], k[1])
 		}
 	}
+	if tag, err := latest(); err == nil && newer(tag, version) {
+		fmt.Printf("old      %-11s this is %s, %s is out. Run: verbally update\n", "version", version, tag)
+	} else {
+		fmt.Printf("ok       %-11s %s\n", "version", version)
+	}
 	if bad == 0 {
 		fmt.Println("\nReady. Run: verbally <app folder>")
 	}
@@ -212,6 +220,8 @@ func main() {
 		port = os.Args[2]
 	}
 	switch arg {
+	case "update":
+		os.Exit(update())
 	case "doctor":
 		os.Exit(doctor())
 	case "version", "--version", "-v":
@@ -298,6 +308,7 @@ func main() {
 		log.Fatal(err, ". Another Verbally runs already? Stop it, or set VERBALLY_PORT and give the app another port: verbally <app> 5190")
 	}
 	go func() { log.Fatal(http.Serve(listener, local(http.DefaultServeMux))) }()
+	go checkUpdate()
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()

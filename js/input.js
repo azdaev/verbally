@@ -118,12 +118,18 @@ function drawTrail() {
 // Tested with Hex: its paste reaches a page that has no text field in focus.
 // The server finds a running dictation app (GET /api/setup). ?speech=mic or ?speech=dictation in the address wins.
 let dictation = q.get('speech') === 'dictation'
-if (!q.get('speech')) fetch(VB + '/api/setup').then(r => r.json()).then(d => {
+fetch(VB + '/api/setup').then(r => r.json()).then(d => {
+  const once = name => !sessionStorage.getItem(name) && (sessionStorage.setItem(name, 1), true) // once for a tab, not at each reload after an edit
+  if (d.update && once('verbally.update')) { // a newer release: say it, change nothing
+    const c = chip('To get it, run in the terminal: verbally update', 'done')
+    c.querySelector('b').textContent = `Verbally ${d.update} is out`
+    leave(c, 9000)
+  }
+  if (q.get('speech')) return
   dictation = d.speech === 'dictation'
   if (!dictation) return
   $('mic').dataset.tip = "Verbally's own microphone · click"
-  if (sessionStorage.getItem('verbally.told')) return // once for a tab, not at each reload after an edit
-  sessionStorage.setItem('verbally.told', 1)
+  if (!once('verbally.told')) return
   const c = chip(d.key ? `Hold ${d.key}, point and talk` : 'Use its key, point with the mouse and talk', 'done')
   c.querySelector('b').textContent = 'Speech: ' + (d.app || 'your dictation app')
   leave(c, 7000)
