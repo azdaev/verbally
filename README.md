@@ -2,13 +2,13 @@
 
 **Point at your app. Say the change. Watch the code change.**
 
-![Point at a heading, say "make this heading huge and orange", and the source file changes](docs/demo.gif)
+![An ugly todo list turns into a clean dark one, phrase by phrase](docs/demo.gif)
 
-<sub>Real speed, no cuts. Two phrases, two edits in `src/App.tsx`.</sub>
+<sub>Real speed, no cuts. Six phrases, six edits in `src/App.tsx`.</sub>
 
 You look at a button and think "bigger, and not that blue". Now you just say it.
 
-Hold `⌥`, point, talk. About 3 seconds later the change is in your source file. No prompt box. No "the third card in the second row, no, the other one".
+Hold `⌥`, point, talk. A few seconds later the change is in your source file. No prompt box. No "the third card in the second row, no, the other one".
 
 ## Get started
 
