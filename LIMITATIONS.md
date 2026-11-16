@@ -53,6 +53,6 @@ Result: the element alone is not enough; with its neighbours the search is close
 - **Windows: not supported.** The engine code uses Unix process groups.
 - **Chrome.** Without a Soniox key the speech recognizer of Chrome works; Firefox has none.
 - **Jev (the Typesafe key) is optional, but without it routing is weaker.** Key-word rules work for English and Russian only. Open: let the design model itself choose the place of the change.
-- **The engine runs Claude Code with all tools and no questions.** See "Security and privacy" in the README. Open: an engine without tools for code mode, where the model only writes edit blocks.
+- **The engine runs Claude Code with all tools and no questions.** See "Security and privacy" in docs/DETAILS.md. Open: an engine without tools for code mode, where the model only writes edit blocks.
 - **Pinterest needs the Playwriter extension.** The engine adds the browser lines to its prompt only when `playwriter` is installed. `pinterest.sh` reads Pinterest through the user's own browser; check that site's terms for your use.
 - **The default model is Opus.** A Claude plan with a small Opus limit runs out fast. Use `?model=claude-sonnet-5-5`.

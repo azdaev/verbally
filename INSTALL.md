@@ -60,7 +60,7 @@ Give the user these lines:
 - Move the mouse while you hold `⌥ Option` to point at an element.
 - `⌘Z` puts a change back.
 - Verbally writes into the source files. Commit your work first.
-- The engine runs Claude Code with all tools allowed and no questions. Details: the "Security and privacy" part of the README.
+- The engine runs Claude Code with all tools allowed and no questions. Details: `docs/DETAILS.md` in the repository.
 
 ## Remove
 
