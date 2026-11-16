@@ -20,6 +20,14 @@ Install Verbally here and start it: https://raw.githubusercontent.com/azdaev/ver
 
 That is all. Claude installs it, starts it, and opens your app with a small bar in the corner.
 
+## You need
+
+- **Claude Code**, signed in. It is the engine.
+- **A Vite + React app.** Other stacks: [LIMITATIONS.md](LIMITATIONS.md).
+- **Chrome**, **Node**, and **macOS or Linux**.
+
+No API keys. Two optional keys make speech and routing better: see [docs/DETAILS.md](docs/DETAILS.md).
+
 ## Say things like
 
 - "make this heading bigger"
@@ -30,7 +38,6 @@ That is all. Claude installs it, starts it, and opens your app with a small bar 
 ## Good to know
 
 - **It runs on your Claude Code subscription.** No API key, no extra bill.
-- **Vite + React, macOS and Linux** today. The rest is in [LIMITATIONS.md](LIMITATIONS.md).
 - **It writes into your real files.** Commit first.
 - **The engine is Claude Code with every tool allowed and no questions.** Nobody can click "approve" while they talk. Use it on projects that you trust.
 - **No project yet?** `verbally` with no folder builds a new page from nothing, by voice.
