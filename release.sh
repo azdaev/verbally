@@ -3,6 +3,9 @@
 # INSTALL.md downloads them by these names.
 set -e
 v=${1:?usage: ./release.sh v0.1.0}
+npm ci
+npm run build
+npm test
 go vet ./... && go test ./...
 rm -rf dist
 for t in darwin/arm64 darwin/amd64 linux/amd64 linux/arm64; do

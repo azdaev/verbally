@@ -103,6 +103,12 @@ func speech() map[string]string {
 func setup(w http.ResponseWriter, r *http.Request) {
 	out := speech()
 	out["version"] = version
+	out["engine"], _ = defaultEngine() // Startup already checks the default.
+	for _, name := range []string{"claude", "codex"} {
+		if _, err := exec.LookPath(name); err == nil {
+			out[name] = "installed"
+		}
+	}
 	out["recognizer"] = "Chrome" // of Verbally's own microphone
 	if os.Getenv("SONIOX_API_KEY") != "" {
 		out["recognizer"] = "Soniox"

@@ -57,6 +57,9 @@ Result: the element alone is not enough; with its neighbours the search is close
 - **Windows: not supported.** The engine code uses Unix process groups.
 - **Chrome.** Without a Soniox key the speech recognizer of Chrome works; Firefox has none.
 - **Jev (the Typesafe key) is optional, but without it routing is weaker.** The key-word rules know few languages. Open: let the design model itself choose the place of the change.
-- **The engine runs Claude Code with all tools and no questions.** See "Security and privacy" in docs/DETAILS.md. Open: an engine without tools for code mode, where the model only writes edit blocks.
+- **Claude Code runs with all tools and no questions.** See "Security and privacy" in docs/DETAILS.md. Codex CLI runs read-only and returns edit blocks for Verbally to apply.
 - **Pinterest needs the Playwriter extension.** The engine adds the browser lines to its prompt only when `playwriter` is installed. `pinterest.sh` reads Pinterest through the user's own browser; check that site's terms for your use.
-- **The default model is Opus.** A Claude plan with a small Opus limit runs out fast. Choose Sonnet in the settings of the bar.
+- **The default Claude model is Opus.** A Claude plan with a small Opus limit runs out fast. Choose Sonnet in the settings of the bar.
+
+- **Codex returns a completed reply.** The page does not display partial Codex output while the model works.
+- **Codex configuration is isolated.** The adapter ignores user plugins and MCP servers but keeps the saved login.

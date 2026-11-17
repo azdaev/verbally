@@ -2,7 +2,7 @@
 // The pointer (⌥ + mouse) finds data-vsrc="file:line" marks that code/dev.mjs puts on every JSX element.
 // Without a pointer the element under the mouse counts. Each phrase is its own request; they run side by side.
 
-fetch(VB + '/prompt-code.txt').then(r => r.text()).then(t => system = t) // `system` lives in core.js
+const codeReady = Promise.all([setupReady, fetch(VB + '/prompt-code.txt').then(r => r.text())]).then(([, t]) => system = t) // `system` lives in core.js
 let spoke = null // the pointer that was there during this phrase
 // said: the last phrases and what they changed. The user often says the same thing again because the change did not work;
 // without this the model sees each phrase as new and repeats the same small change.
@@ -45,8 +45,7 @@ check(apply('a b c', [['b', 'x']]) === 'a x c' && apply('b b', [['b', 'x']]) ===
 function hear(text, final) {
   const cmd = text.replace(/^[\s.,;:!?-]+/, '').trim()
   if (point) spoke = point
-  $('live').textContent = final ? '' : cmd
-  fit()
+  UI.update({ live: final ? '' : cmd })
   if (!final || !cmd) return
   const pointed = spoke
   spoke = null
@@ -54,12 +53,12 @@ function hear(text, final) {
   const t0 = performance.now()
   change(cmd, pointed, el).then(n => {
     if (el.cancelled) return
-    el.classList.add(n ? 'done' : 'skip')
+    el.update({ kind: n ? 'done' : 'skip' })
     leave(el, n ? 1400 : 900)
   }).catch(e => {
     if (el.cancelled) return
-    el.classList.add('err')
-    el.querySelector('small').textContent = e.message
+    el.update({ kind: 'err' })
+    el.update({ text: e.message })
     leave(el, 6000)
     tele({ event: 'code_edit', cmd, error: e.message, ms: Math.round(performance.now() - t0) })
   }).finally(() => { if (point === pointed) unpoint() }) // the user may point for the next phrase already: that pointer stays
@@ -67,6 +66,7 @@ function hear(text, final) {
 
 // change runs one phrase: the files, the model, the edit. It returns the number of changed files.
 async function change(cmd, pointed, el) {
+  await codeReady
   const t = await fetch(VB + '/api/triage', { method: 'POST', body: JSON.stringify({ text: cmd }) }).then(r => r.json()).catch(() => ({}))
   if (t.filler) return 0
   // No pointing with ⌥: the element under the mouse. No mouse yet: the middle of the screen.
@@ -92,7 +92,7 @@ async function change(cmd, pointed, el) {
         + (said.length ? `\n\nSaid before, oldest first. Each was done. When the new speech repeats one, that change did not work: do it another way, and enough to be visible:\n${said.join('\n')}` : '')
         + `\n\nPointer:\n${pointed?.text || `(the user held no key to point. The element ${hover ? 'under the mouse' : 'in the middle of the screen'}: ${bare(target)})`}\n\nSpeech:\n${cmd}`
       if (t.versions) return versions(cmd, user, Object.fromEntries(paths.map((p, i) => [p, texts[i]])), ac, el)
-      return ask(user + more, ac.signal, name => el.querySelector('b').textContent = name, shots(pointed?.zone, pointed?.marks))
+      return ask(user + more, ac.signal, name => el.update({ title: name }), shots(pointed?.zone, pointed?.marks))
     }
     if (t.versions) return await ask1('')
     let reply, blocks, byFile
@@ -118,7 +118,7 @@ async function change(cmd, pointed, el) {
     // One long phrase can hold several requests: the model names each task, and each one gets its own card.
     for (const [, name] of [...reply.matchAll(/<!--\s*task:\s*([\s\S]*?)-->/g)].slice(1)) {
       const c = chip('', 'done')
-      c.querySelector('b').textContent = name.trim()
+      c.update({ title: name.trim() })
       leave(c, 1400)
     }
     tele({ event: 'code_edit', cmd, files: [...byFile.keys()], blocks: blocks.length, ms: Math.round(performance.now() - t0) })
@@ -174,7 +174,7 @@ function versions(cmd, user, base, ac, el) {
   return new Promise((done, fail) => {
     const close = () => { // the versions that are not ready are not needed now: their engine processes stop
       open = false
-      $('pick').hidden = true
+      UI.closePicker()
       el.stop = null
       ac.abort()
     }
@@ -210,7 +210,7 @@ function versions(cmd, user, base, ac, el) {
       if (!open || !byFile.size || Object.values(files).some(t => !t)) return
       const name = reply.match(/<!--\s*task:\s*([\s\S]*?)-->/)?.[1].trim() || 'Version ' + (k + 1)
       pickAdd(Object.assign(document.createElement('span'), { className: 'label', textContent: name }), () => show(files), () => finish(files, name))
-      $('pickTitle').textContent = ++built < n ? `Building ${n} versions… ${built} ready` : 'Pick a version'
+      UI.pickerTitle(++built < n ? `Building ${n} versions… ${built} ready` : 'Pick a version')
     })).then(() => { if (open && !built) { close(); fail(new Error('No version fit the files')) } })
   })
 }
@@ -218,7 +218,7 @@ function versions(cmd, user, base, ac, el) {
 // ask streams the reply of the design engine. The reply starts with the task name; onName shows it at once.
 // ponytail: a copy of the stream reading in model.js. Share it when a third mode needs it.
 async function ask(user, signal, onName, shown) {
-  const res = await fetch(VB + '/api/claude', { signal, method: 'POST', headers: { 'Content-Type': 'application/json' },
+  const res = await fetch(engineURL(), { signal, method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ id: Math.random().toString(36).slice(2, 10), model: MODEL, effort: EFFORT, shots: shown, messages: [{ role: 'system', content: system }, { role: 'user', content: user }] }) })
   if (!res.ok) throw new Error(res.status + ' ' + (await res.text()).slice(0, 200))
   const reader = res.body.pipeThrough(new TextDecoderStream()).getReader()
@@ -243,8 +243,8 @@ async function ask(user, signal, onName, shown) {
 function cancel(el) {
   el.cancelled = true
   el.stop?.()
-  tele({ event: 'cancel', text: el.querySelector('small').textContent })
-  el.classList.add('skip')
+  tele({ event: 'cancel', text: el.text })
+  el.update({ kind: 'skip' })
   leave(el, 300)
 }
 
@@ -254,13 +254,9 @@ function travel(step) {
   fetch(VB + '/api/undo' + (step > 0 ? '?redo=1' : ''), { method: 'POST' })
     .then(r => r.text().then(t => r.ok ? leave(chip((step > 0 ? 'Redone: ' : 'Undone: ') + t, 'done'), 1400) : note(t)))
 }
-$('tools').classList.add('open')
-$('clear').hidden = true
-$('back').disabled = $('fwd').disabled = false
-$('back').dataset.tip = 'Undo the last code change · ⌘Z'
-$('fwd').dataset.tip = 'Redo · ⇧⌘Z'
+UI.update({ tools: true, canUndo: true, canRedo: true })
 // Start the engine now, so the first phrase does not wait for it.
-fetch(VB + '/prompt-code.txt').then(r => r.text()).then(t => fetch(VB + '/api/claude', { method: 'POST', body: JSON.stringify({ model: MODEL, effort: EFFORT, messages: [{ content: t }] }) })).catch(() => {})
+codeReady.then(() => { if (ENGINE === 'claude') return fetch(engineURL(), { method: 'POST', body: JSON.stringify({ model: MODEL, effort: EFFORT, messages: [{ content: system }] }) }) }).catch(() => {})
 // Test hooks: ?vsay=phrase&vpoint=css selector&vwait=ms says a phrase while pointing at that element, without hands.
 if (q.get('vsay')) setTimeout(() => {
   const t = q.get('vpoint') && document.querySelector(q.get('vpoint'))
@@ -270,8 +266,8 @@ if (q.get('vsay')) setTimeout(() => {
 // ?vpick=N&vkeep=1: when the versions are ready, show version N; with vkeep, press "Use this" 4 s later.
 if (q.get('vpick')) {
   const wait = setInterval(() => {
-    const b = $('pick').querySelectorAll('.grid button')[q.get('vpick') - 1]
-    if (!b || $('pick').hidden) return
+    const b = $('pick')?.querySelectorAll('.grid button')[q.get('vpick') - 1]
+    if (!b || !UI.getSnapshot().picker) return
     clearInterval(wait)
     b.click()
     if (q.get('vkeep')) setTimeout(() => $('pickUse').click(), 4000)

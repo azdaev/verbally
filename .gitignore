@@ -14,3 +14,6 @@ skills-lock.json
 /*.png
 .DS_Store
 .agents/
+
+node_modules/
+ui/compiled.css

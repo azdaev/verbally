@@ -1,4 +1,4 @@
-// Verbally: serves the page and passes model requests to the local Claude Code CLI or to OpenRouter.
+// Verbally: serves the page and passes model requests to the local Claude Code CLI, Codex CLI, or OpenRouter.
 // The OpenRouter key stays out of the browser.
 //
 // Files:
@@ -14,7 +14,7 @@
 //	code.go    code mode: read, write and undo the source files of an app
 //	code/dev.mjs + overlay.js + js/code.js + prompt-code.txt: code mode, Verbally as a widget on the app's dev server
 //	prompt.txt the system prompt of the design model
-//	index.html + ui.css + js/: the page (core, page, model, picker, input, main; loaded in that order)
+//	index.html + ui.css + js/: the page (ui, core, page, model, picker, input, main; loaded in that order)
 //	stats.py   a summary of telemetry.jsonl
 //
 // Run:
@@ -160,7 +160,14 @@ func doctor() int {
 			fmt.Printf("no       %-11s optional: %s\n", name, use)
 		}
 	}
-	has("claude", "the engine. Install Claude Code: https://claude.com/claude-code", true)
+	has("claude", "Claude Code engine", false)
+	has("codex", "Codex CLI engine", false)
+	if name, err := defaultEngine(); err != nil {
+		bad = 1
+		fmt.Printf("MISSING  engine      %v\n", err)
+	} else {
+		fmt.Printf("ok       engine      %s (VERBALLY_ENGINE selects the default)\n", name)
+	}
 	has("node", "code mode, the bar on a running Vite + React app", false)
 	has("playwriter", "photos from Pinterest and other sites that block plain requests", false)
 	if runtime.GOOS == "darwin" {
@@ -248,8 +255,8 @@ func main() {
 		script = home()
 	}
 	key := os.Getenv("OPENROUTER_API_KEY")
-	if _, err := exec.LookPath("claude"); err != nil && key == "" {
-		log.Fatal("no engine: the Claude Code CLI is not on this machine. Install it (https://claude.com/claude-code), then run: verbally doctor")
+	if _, err := defaultEngine(); err != nil {
+		log.Fatal(err)
 	}
 	target, _ := url.Parse("https://openrouter.ai")
 	proxy := &httputil.ReverseProxy{
@@ -262,6 +269,7 @@ func main() {
 	}
 	http.Handle("POST /api/chat", proxy)
 	http.HandleFunc("POST /api/claude", claudeChat)
+	http.HandleFunc("POST /api/codex", codexChat)
 	http.HandleFunc("GET /photo", photo)
 	http.HandleFunc("POST /api/triage", triage)
 	http.HandleFunc("GET /api/setup", setup)

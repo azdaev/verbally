@@ -64,10 +64,7 @@ function save() {
 }
 
 function store() {
-  $('back').disabled = at <= 0
-  $('fwd').disabled = at >= history.length - 1
-  $('clear').disabled = history[at] === '[]'
-  $('tools').classList.toggle('open', history.length > 1)
+  UI.update({ canUndo: at > 0, canRedo: at < history.length - 1, canClear: history[at] !== '[]', tools: history.length > 1 })
   if (!PAGE) return
   keepTodo()
   for (;;) {
@@ -98,12 +95,11 @@ function paint(page) {
   cur = null
   if (picking) { // undo or clear while a layout choice was open: the versions belonged to the old page
     picking = null
-    $('pick').hidden = true
+    UI.closePicker()
     localStorage.removeItem('verbally.' + PAGE + '.versions')
   }
-  $('tasks').querySelectorAll('.ph:not(.err)').forEach(el => el.remove()) // their sections are gone
-  $('live').textContent = ''
-  fit()
+  UI.clearTasks() // their sections are gone
+  UI.update({ live: '' })
   for (const { html, said } of page) {
     const sec = newSection()
     Object.assign(sec, { html, said })
