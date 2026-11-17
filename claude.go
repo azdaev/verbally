@@ -159,22 +159,7 @@ func warm(model, effort, system string) {
 // claudeChat answers in the OpenRouter stream shape, so the page reads both engines the same way.
 // A request with only the system message starts the waiting process and returns.
 func claudeChat(w http.ResponseWriter, r *http.Request) {
-	var in struct {
-		ID     string `json:"id"`
-		Model  string `json:"model"`
-		Effort string `json:"effort"`
-		Look   bool   `json:"look"`   // send a screenshot of the page with the speech
-		Window string `json:"window"` // the title of the browser window of the page
-		// Shots: parts of the screen that the user showed with ⌥ Option + mouse, in screen points, each with a label:
-		// the zone around the whole mouse path, and a square at each place where the mouse stopped (① ②).
-		Shots []struct {
-			rect
-			Label string `json:"label"`
-		} `json:"shots"`
-		Messages []struct {
-			Content string `json:"content"`
-		} `json:"messages"`
-	}
+	var in chatRequest
 	if err := json.NewDecoder(r.Body).Decode(&in); err != nil || len(in.Messages) == 0 || len(in.Messages) > 2 {
 		http.Error(w, "need a system message and at most one user message", http.StatusBadRequest)
 		return

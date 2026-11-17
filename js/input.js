@@ -125,17 +125,18 @@ let talk = {} // { app, key, code, recognizer } from the server: the dictation a
 // A choice stays in the browser. ?speech=, ?lang= and ?model= in the address win over it.
 const settingsOpen = () => UI.getSnapshot().settingsOpen
 function showSettings() {
-  UI.update({ settings: { dictation, lang: LANG, model: MODEL, talk } })
+  UI.update({ settings: { dictation, lang: LANG, model: MODEL, engine: ENGINE, talk } })
 }
 showSettings()
 UI.actions.setting = (name, value) => {
-  localStorage.setItem('verbally.' + name, value)
+  localStorage.setItem(name === 'model' ? engineModelKey(ENGINE) : 'verbally.' + name, value)
+  if (name === 'engine') selectEngine(value)
   if (name === 'speech') dictation = value === 'dictation'
   if (name === 'lang') LANG = value
   if (name === 'model') MODEL = value
   showSettings()
 }
-fetch(VB + '/api/setup').then(r => r.json()).then(d => {
+setupReady.then(d => {
   const once = name => !sessionStorage.getItem(name) && (sessionStorage.setItem(name, 1), true) // once for a tab, not at each reload after an edit
   if (d.update && once('verbally.update')) { // a newer release: say it, change nothing
     const c = chip('To get it, run in the terminal: verbally update', 'done')

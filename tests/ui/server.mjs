@@ -3,6 +3,7 @@ import http from 'node:http'
 import { readFile } from 'node:fs/promises'
 import { resolve, extname } from 'node:path'
 const root = resolve(import.meta.dirname, '../..')
+let lastEngine = ''
 let source = 'export const title = "Original"', undo = [], redo = [], preview = null
 const body = async req => { let text = ''; for await (const chunk of req) text += chunk; return text }
 const server = http.createServer(async (req, res) => {
@@ -10,7 +11,7 @@ const server = http.createServer(async (req, res) => {
   const send = (text, type = 'text/plain', status = 200) => { res.writeHead(status, { 'Content-Type': type + '; charset=utf-8', 'Cache-Control': 'no-store' }); res.end(text) }
   try {
     if (path === '/reset') { source = 'export const title = "Original"'; undo = []; redo = []; preview = null; return send('ok') }
-    if (path === '/api/setup') return send(JSON.stringify({ version: 'fixture', speech: 'dictation', app: 'Fixture', key: 'right ⌥', code: 'AltRight', others: 'Handy' }), 'application/json')
+    if (path === '/api/setup') return send(JSON.stringify({ version: 'fixture', engine: 'codex', speech: 'dictation', app: 'Fixture', key: 'right ⌥', code: 'AltRight', others: 'Handy' }), 'application/json')
     if (path === '/api/log' || path === '/api/page') { await body(req); return send('ok') }
     if (path === '/api/root') return send('/fixture')
     if (path === '/api/release') { if (preview !== null) { source = preview; preview = null }; return send('') }
@@ -27,7 +28,9 @@ const server = http.createServer(async (req, res) => {
       return send('fixture.jsx')
     }
     if (path === '/api/triage') { const d = JSON.parse(await body(req)); return send(JSON.stringify({ versions: /versions/.test(d.text), filler: d.text === 'filler' }), 'application/json') }
-    if (path === '/api/claude') {
+    if (path === '/engine-used') return send(lastEngine)
+    if (path === '/api/claude' || path === '/api/codex') {
+      lastEngine = path.split('/').at(-1)
       const d = JSON.parse(await body(req)), prompt = d.messages.at(-1)?.content || ''
       if (d.messages.length < 2) return send('')
       const code = prompt.startsWith('Files:'), version = prompt.match(/This is version (\d+)/)?.[1]

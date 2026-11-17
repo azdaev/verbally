@@ -320,3 +320,5 @@ canvas.sweep { position: fixed; z-index: 10; pointer-events: none; }
 #menu [role=radio] { border: 1px solid var(--input); background: var(--background); }
 #menu [role=radio][data-state=checked] { border-color: var(--foreground); }
 #menu [role=radio] svg { fill: var(--foreground); }
+
+#menu .model-name { width: 180px; max-width: 50%; padding: 7px 9px; border: 1px solid var(--input); border-radius: 6px; background: var(--background); color: var(--foreground); font: inherit; }

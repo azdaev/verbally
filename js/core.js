@@ -1,21 +1,19 @@
 // Settings from the address, small helpers, telemetry and the task cards above the bar.
 
 const q = new URLSearchParams(location.search)
-// Calibration without a code edit: ?engine= ?model= ?provider= ?effort=
-// The default engine is the local Claude Code CLI: best HTML, 3-5 s per request, no OpenRouter cost.
-// ?engine=openrouter uses a fast model through OpenRouter: about 0.5 s per request, weaker HTML.
-const CLAUDE = q.get('engine') !== 'openrouter'
-let MODEL = q.get('model') || (CLAUDE ? localStorage.getItem('verbally.model') || 'claude-opus-5-5' : 'openai/gpt-oss-120b') // the stored one is the choice in the settings of the bar
-// The default provider belongs to the default model. Another model gets any provider unless ?provider= names one.
+// Engine choices have separate model settings. Existing Claude preferences remain valid.
+let ENGINE = 'claude', MODEL = '', WAIT = true, JEV = true
+const engineModelKey = engine => engine === 'claude' ? 'verbally.model' : 'verbally.' + engine + '.model'
+function selectEngine(engine, initial = false) {
+  ENGINE = ['claude', 'codex', 'openrouter'].includes(engine) ? engine : 'claude'
+  MODEL = (initial && q.get('model')) || localStorage.getItem(engineModelKey(ENGINE))
+    || ({ claude: 'claude-opus-5-5', codex: '', openrouter: 'openai/gpt-oss-120b' })[ENGINE]
+  WAIT = ENGINE !== 'openrouter' && !q.get('partial')
+  JEV = ENGINE !== 'openrouter' && !q.get('nojev')
+}
+selectEngine(q.get('engine') || localStorage.getItem('verbally.engine'), true)
 const PROVIDER = q.get('provider') || (q.get('model') ? '' : 'cerebras')
-// Measured with Opus 5.5 on one hero section: medium thinks 10 s before the first token (22 s in all), low starts after 1.7 s (8-10 s in all).
 const EFFORT = q.get('effort') || 'low'
-// Claude needs 2-3 s for any request, so a request for a half-heard phrase ("Uh", "But") only blocks the real one.
-// With Claude the model gets a phrase when the recognizer says it is complete. ?partial=1 brings back requests on half-heard speech.
-const WAIT = CLAUDE && !q.get('partial')
-// Jev, a fast yes/no model, reads each phrase before Claude. It drops filler ("okay", "uh") and tells when Claude must see the page ("this is ugly").
-// ?nojev=1 switches it off.
-const JEV = CLAUDE && !q.get('nojev')
 // The page gives its window a name of its own, so the server can take a screenshot of the right window.
 // Code mode: the tool runs as a widget on a running app (overlay.js) and changes its source files. VB is the address of the tool there.
 const CODE = !!window.VERBALLY_CODE, VB = window.VERBALLY_BASE || ''
@@ -24,6 +22,13 @@ if (!CODE) document.title = 'Verbally ' + Math.random().toString(36).slice(2, 6)
 const UI = window.VerballyUI
 const isTextInput = e => e.composedPath().some(el => el.matches?.('input, textarea, [contenteditable]'))
 const $ = id => id === 'canvas' ? document.getElementById(id) : UI.root.getElementById(id)
+const engineURL = () => VB + '/api/' + (ENGINE === 'openrouter' ? 'chat' : ENGINE)
+// Startup waits for this promise before warming or sending a phrase.
+const setupReady = fetch(VB + '/api/setup').then(r => r.ok ? r.json() : {}).catch(() => ({})).then(d => {
+  selectEngine(q.get('engine') || localStorage.getItem('verbally.engine') || d.engine || 'claude', true)
+  return d
+})
+
 // tele adds one event to telemetry.jsonl, so a lost phrase or a silent change of recognizer can be found later.
 const tele = v => fetch(VB + '/api/log', { method: 'POST', body: JSON.stringify(v), keepalive: true }).catch(() => {})
 // A script error goes to the telemetry too: a broken page after a change shows there, not only in the browser console.

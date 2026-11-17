@@ -12,17 +12,17 @@ Hold `⌥`, point, talk. A few seconds later the change is in your source file. 
 
 ## Get started
 
-Paste this into Claude Code, in your project:
+Paste this into Claude Code or Codex, in your project:
 
 ```
 Install Verbally here and start it: https://raw.githubusercontent.com/azdaev/verbally/main/INSTALL.md
 ```
 
-That is all. Claude installs it, starts it, and opens your app with a small bar in the corner.
+That is all. The agent installs it, starts it, and opens your app with a small bar in the corner.
 
 ## You need
 
-- **Claude Code**, signed in. It is the engine.
+- **Claude Code or Codex CLI**, signed in. Choose the engine in Settings → Model.
 - **A Vite + React app.** Other stacks: [LIMITATIONS.md](LIMITATIONS.md).
 - **Chrome**, **Node**, and **macOS or Linux**.
 
@@ -37,10 +37,10 @@ No API keys. If a dictation app runs already (Hex, Handy, Wispr Flow), it does t
 
 ## Good to know
 
-- **It runs on your Claude Code subscription.** No API key, no extra bill.
+- **It uses your selected CLI login.** Claude Code and Codex CLI support subscription login.
 - **It writes into your real files.** Commit first.
-- **The engine is Claude Code with every tool allowed and no questions.** Nobody can click "approve" while they talk. Use it on projects that you trust.
-- **The gear on the bar** has the settings: who listens, the model, the keys.
+- **Claude Code runs with all tools allowed. Codex runs read-only.** Verbally applies the returned edits and records undo steps.
+- **The gear on the bar** has the settings: who listens, the engine, the model, the keys.
 - **No project yet?** `verbally` with no folder builds a new page from nothing, by voice.
 
 Settings, security and the install by hand: [docs/DETAILS.md](docs/DETAILS.md). License: [MIT](LICENSE).

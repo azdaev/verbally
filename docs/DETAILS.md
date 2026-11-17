@@ -17,7 +17,7 @@ With Go: `go install github.com/azdaev/verbally@latest`.
 
 You need:
 
-- [Claude Code](https://claude.com/claude-code), signed in. This is the engine.
+- Claude Code or Codex CLI, signed in. Select the engine in Settings → Model.
 - Chrome, or a browser built on it.
 - Node, for code mode.
 
@@ -69,7 +69,7 @@ Verbally needs your words as text. There are three ways, and it picks one by its
 
 No pointing with `⌥`? Then the phrase is about the element under the mouse.
 
-The gear on the bar opens the settings: who listens, the language for the recognizer of Chrome, the model (Opus or Sonnet), and the keys. A choice stays in the browser. `verbally doctor` tells which one is in use. `VERBALLY_SPEECH=mic` or `VERBALLY_SPEECH=dictation` sets it by hand, and so does `?speech=mic` in the address. A click on the microphone of the bar always starts Verbally's own microphone.
+The gear on the bar opens the settings: who listens, the language for the recognizer of Chrome, the engine and its model, and the keys. A choice stays in the browser. `verbally doctor` tells which one is in use. `VERBALLY_SPEECH=mic` or `VERBALLY_SPEECH=dictation` sets it by hand, and so does `?speech=mic` in the address. A click on the microphone of the bar always starts Verbally's own microphone.
 
 Tested with Hex. The other apps are found by name and paste in the same way; tell us when one does not work.
 
@@ -81,8 +81,9 @@ All keys are optional. Set them as environment variables before you start `verba
 |---|---|
 | `SONIOX_API_KEY` | Faster and more exact speech recognition ([Soniox](https://soniox.com)). Without it the recognizer of Chrome works. |
 | `TYPESAFE_API_KEY` | Jev, a fast yes/no model from [Typesafe](https://typesafe.ai). It drops filler ("uh, okay") and sends each phrase to the right section. Without it key-word rules work. |
-| `OPENROUTER_API_KEY` | A second engine for page mode: add `?engine=openrouter` to the address. Faster, weaker HTML. |
-| `VERBALLY_WORKERS` | How many Claude processes may work at the same time. Default 4. |
+| `OPENROUTER_API_KEY` | An optional engine for page mode: add `?engine=openrouter` to the address. Faster, weaker HTML. |
+| `VERBALLY_ENGINE` | Default engine: `claude`, `codex`, or `openrouter`. The browser choice can override it. |
+| `VERBALLY_WORKERS` | How many engine processes may work at the same time. Default 4. |
 | `VERBALLY_SPEECH` | `mic` or `dictation`: who listens. Default: `dictation` when a dictation app runs. See "Speech" above. |
 | `VERBALLY_NO_UPDATE_CHECK` | `1`: do not ask GitHub for a newer release at start. |
 | `VERBALLY_PORT` | The port of the Verbally server. Default 8787. Set it when that port is taken, or to run a second Verbally. |
@@ -91,16 +92,16 @@ All keys are optional. Set them as environment variables before you start `verba
 
 Settings in the address of the page: `?model=claude-sonnet-5-5` (default `claude-opus-5-5`), `?effort=medium` (default `low`), `?terms=Word,Word` (names that the speech recognizer must know).
 
-To give the engine your own MCP servers, put them in `~/.verbally/engine-mcp.json`, in the format of Claude Code's `--mcp-config`.
+To give Claude Code your own MCP servers, put them in `~/.verbally/engine-mcp.json`, in the format of Claude Code's `--mcp-config`.
 
 ## Security and privacy
 
 Read this before you run it.
 
-- **The engine runs Claude Code with every tool allowed and no questions** (`--permission-mode bypassPermissions`). This keeps a voice session fluent: nobody can approve a prompt while they talk. The prompt tells the model not to change files by itself, but a prompt is not a wall. Use Verbally on projects and pages that you trust.
+- **Claude Code runs with every tool allowed and no questions** (`--permission-mode bypassPermissions`). This keeps a voice session fluent: nobody can approve a prompt while they talk. The prompt tells the model not to change files by itself, but a prompt is not a wall. Use Verbally on projects and pages that you trust.
 - **The server listens on `127.0.0.1:8787` only**, and it answers only to pages of your own machine. A web site that you have open cannot call it (`local.go`).
 - **In code mode the server reads and writes files inside the app folder that you named**, nowhere else.
-- **Your speech leaves the machine**: the audio goes to Soniox or to Chrome's recognizer, the text goes to Claude, and to Typesafe when you set that key.
+- **Your speech leaves the machine**: the audio goes to Soniox or to Chrome's recognizer, the text goes to the selected model provider, and to Typesafe when you set that key.
 - **At start Verbally asks GitHub for the number of the newest release.** It sends nothing about you. `VERBALLY_NO_UPDATE_CHECK=1` switches it off.
 - **`~/.verbally/telemetry.jsonl` holds the text of your speech and timings.** It stays on your machine. `python3 stats.py ~/.verbally/telemetry.jsonl` gives a summary. Delete the file when you want.
 
@@ -152,3 +153,33 @@ Then open `http://127.0.0.1:18788/code` and run its checks.
 The fixtures cover settings, style isolation, task states, versions, cancellation, and history.
 They use deterministic replies and an in-memory code file.
 They do not verify speech recognition or model quality.
+
+## Codex CLI engine
+
+Select **Settings → Model → Engine → Codex CLI**.
+Use a current Codex CLI and sign in with `codex login`.
+Verbally uses that saved login. It does not request a separate API key.
+
+The engine choice works in page mode and code mode.
+Each engine keeps its own model choice.
+Leave the Codex model field empty to use the CLI default, or enter a model ID.
+
+```sh
+VERBALLY_ENGINE=codex verbally path/to/app
+```
+
+The address parameter takes priority, then the saved browser choice, then the server default.
+Without a choice, Verbally prefers Claude Code when installed, then Codex CLI.
+It detects installation, not account access. Select Codex when Claude cannot answer.
+
+Codex uses `exec --json --ephemeral` with a read-only sandbox.
+Verbally sends only its final response to the editor.
+The completed reply appears at once; Codex token streaming is not part of this adapter.
+Verbally applies edits and keeps preview, cancellation, and undo under its own control.
+Screenshots become temporary image files. Verbally removes them when the request ends.
+
+The adapter ignores user configuration, plugins, and MCP servers for predictable requests.
+It keeps the saved CLI login. The model field and `?effort=` control each request.
+The two engines share the `VERBALLY_WORKERS` limit.
+
+The protocol follows the [Codex non-interactive documentation](https://learn.chatgpt.com/docs/non-interactive-mode).

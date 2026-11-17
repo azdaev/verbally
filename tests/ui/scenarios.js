@@ -20,6 +20,7 @@ const say = text => { pointCode(); hear(text, true) }
 run.onclick = async () => {
   run.disabled = true; results.replaceChildren()
   try {
+    await setupReady
     await waitFor(() => UI.actions.mic && (CODE || cur), 'initialization')
     if (!CODE) { paint([]); save() }
     else await fetch('/reset', { method: 'POST' })
@@ -27,10 +28,25 @@ run.onclick = async () => {
       await clickUI('more')
       assert($('menu').open, 'dialog does not open')
       const modelTab = UI.root.querySelector('[role=tab][id$="model"]'); modelTab.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 }))
+      await waitFor(() => UI.root.querySelector('[role=radio][value="claude"]'), 'engine settings')
+      UI.root.querySelector('[role=radio][value="claude"]').click()
       await waitFor(() => UI.root.querySelector('[role=radio][value="claude-sonnet-5-5"]'), 'model tab')
       UI.root.querySelector('[role=radio][value="claude-sonnet-5-5"]').click()
       await waitFor(() => MODEL === 'claude-sonnet-5-5', 'model change')
       assert(localStorage.getItem('verbally.model') === MODEL, 'model not saved')
+      UI.root.querySelector('[aria-label="Close settings"]').click()
+      await waitFor(() => !$('menu').open, 'dialog close')
+    })
+    await scenario('Codex selection preserves separate model settings', async () => {
+      await clickUI('more')
+      UI.root.querySelector('[role=radio][value="codex"]').click()
+      await waitFor(() => ENGINE === 'codex', 'Codex selection')
+      assert(MODEL === '', 'Claude model leaks into Codex')
+      assert(localStorage.getItem('verbally.engine') === 'codex', 'engine not saved')
+      UI.root.querySelector('[role=radio][value="claude"]').click()
+      await waitFor(() => ENGINE === 'claude', 'Claude selection')
+      assert(MODEL === 'claude-sonnet-5-5', 'Claude model choice is lost')
+      UI.root.querySelector('[role=radio][value="codex"]').click()
       UI.root.querySelector('[aria-label="Close settings"]').click()
       await waitFor(() => !$('menu').open, 'dialog close')
     })
@@ -47,6 +63,7 @@ run.onclick = async () => {
       say('change title')
       await waitFor(async () => CODE ? (await codeRead()).includes('Changed') : live().some(s=>s.html.includes('Changed')), 'edit result')
       await waitFor(() => UI.getSnapshot().tasks.some(t=>t.kind === 'done'), 'done card')
+      assert(await fetch('/engine-used').then(r=>r.text()) === 'codex', 'request goes to the wrong engine')
     })
     await scenario('Undo and redo preserve the edit', async () => {
       await clickUI('back')

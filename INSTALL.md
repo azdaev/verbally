@@ -1,13 +1,13 @@
 # Install Verbally
 
-These steps are for a coding agent (Claude Code) that works in the user's project. A person can follow them too.
+These steps are for a coding agent (Claude Code or Codex) that works in the user's project. A person can follow them too.
 
 Verbally puts a voice bar on top of a running web app. The user points at an element, says a change, and the source file changes.
 
 ## 1. Check the machine
 
 - macOS or Linux. Windows is not supported: stop and tell the user.
-- `claude --version` must work. Verbally uses the Claude Code CLI as its engine.
+- `claude --version` or `codex --version` must work. Sign in to the selected CLI.
 - `node --version` must work for code mode.
 
 ## 2. Get the program
@@ -65,7 +65,7 @@ Give the user these lines:
 - Without one: hold `⌥ Option` and say the change. Chrome asks for the microphone once: allow it. Move the mouse while you hold `⌥ Option` to point at an element.
 - `⌘Z` puts a change back.
 - Verbally writes into the source files. Commit your work first.
-- The engine runs Claude Code with all tools allowed and no questions. Details: `docs/DETAILS.md` in the repository.
+- Claude Code runs with all tools allowed. Codex CLI runs read-only. Details: `docs/DETAILS.md` in the repository.
 
 ## Update
 
@@ -81,3 +81,18 @@ Then stop the running Verbally and start it again. A version before v0.2.2 has n
 rm ~/.local/bin/verbally
 rm -rf ~/.verbally
 ```
+
+## Select Codex CLI
+
+Use a current Codex CLI and run `codex login` first.
+Select **Settings → Model → Engine → Codex CLI** in Verbally.
+Leave the model field empty to use the Codex default.
+
+To set the default before opening the app, run:
+
+```sh
+VERBALLY_ENGINE=codex verbally path/to/app
+```
+
+The address parameter `?engine=codex` overrides the saved browser choice.
+A saved browser choice overrides `VERBALLY_ENGINE`.

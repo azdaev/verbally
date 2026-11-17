@@ -134,11 +134,23 @@ function SettingsWindow() {
             <div className="item"><span>Talk</span><span><Key>⌥</Key> or <Key>Space</Key></span></div>
           </div></div>}
         </TabsContent>
-        <TabsContent value="model"><h3>Model</h3><div className="group"><h4>Writes the changes</h4>
-          <RadioGroup className="list" aria-label="Model" value={s.model} onValueChange={v => change('model', v)}>
-            <Choice value="claude-opus-5-5" title="Opus" detail="The best result. Uses more of your Claude plan." />
-            <Choice value="claude-sonnet-5-5" title="Sonnet" detail="Faster, and lighter on your Claude plan." />
-          </RadioGroup><p className="note">Uses Claude Code on your machine, with your subscription.</p></div></TabsContent>
+        <TabsContent value="model"><h3>Model</h3><div className="group"><h4>Engine</h4>
+          <RadioGroup className="list" aria-label="Engine" value={s.engine} onValueChange={v => change('engine', v)}>
+            <Choice value="claude" title="Claude Code" detail="Uses your Claude Code login." />
+            <Choice value="codex" title="Codex CLI" detail="Uses your Codex CLI login." />
+          </RadioGroup></div>
+          <div className="group"><h4>Writes the changes</h4>
+          {s.engine === 'claude' ? <>
+            <RadioGroup className="list" aria-label="Model" value={s.model} onValueChange={v => change('model', v)}>
+              <Choice value="claude-opus-5-5" title="Opus" detail="The best result. Uses more of your Claude plan." />
+              <Choice value="claude-sonnet-5-5" title="Sonnet" detail="Faster, and lighter on your Claude plan." />
+            </RadioGroup><p className="note">Uses Claude Code on your machine, with your subscription.</p>
+          </> : <>
+            <label className="item list"><span>Model<small>Leave empty to use the default.</small></span>
+              <input className="model-name" aria-label="Model name" placeholder={s.engine === 'codex' ? 'Codex default' : 'Model ID'} value={s.model} onChange={e => change('model', e.target.value)} />
+            </label><p className="note">{s.engine === 'codex' ? 'Codex reads the project. Verbally applies each change and keeps undo available.' : 'Uses your OpenRouter connection.'}</p>
+          </>}
+          </div></TabsContent>
         <TabsContent value="keys"><h3>Keys</h3><div className="list">
           <div className="item"><span>Talk</span><span><TalkKey settings={s} /></span></div>
           <div className="item"><span>Point at a thing</span><span>hold <Key>⌥</Key>, move the mouse</span></div>

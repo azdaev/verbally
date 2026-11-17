@@ -2,7 +2,7 @@
 export function createUIStore(code = false) {
   let state = { code, live: '', pointer: '', busy: false, recording: false, hears: false, waiting: false,
     mic: false, tools: code, canUndo: code, canRedo: code, canClear: false, settingsOpen: false,
-    settings: { dictation: false, lang: 'en-US', model: 'claude-opus-5-5', talk: {} },
+    settings: { engine: 'claude', dictation: false, lang: 'en-US', model: 'claude-opus-5-5', talk: {} },
     tasks: [], picker: null }
   const listeners = new Set()
   const actions = {}

@@ -2,7 +2,7 @@
 // The pointer (⌥ + mouse) finds data-vsrc="file:line" marks that code/dev.mjs puts on every JSX element.
 // Without a pointer the element under the mouse counts. Each phrase is its own request; they run side by side.
 
-fetch(VB + '/prompt-code.txt').then(r => r.text()).then(t => system = t) // `system` lives in core.js
+const codeReady = Promise.all([setupReady, fetch(VB + '/prompt-code.txt').then(r => r.text())]).then(([, t]) => system = t) // `system` lives in core.js
 let spoke = null // the pointer that was there during this phrase
 // said: the last phrases and what they changed. The user often says the same thing again because the change did not work;
 // without this the model sees each phrase as new and repeats the same small change.
@@ -66,6 +66,7 @@ function hear(text, final) {
 
 // change runs one phrase: the files, the model, the edit. It returns the number of changed files.
 async function change(cmd, pointed, el) {
+  await codeReady
   const t = await fetch(VB + '/api/triage', { method: 'POST', body: JSON.stringify({ text: cmd }) }).then(r => r.json()).catch(() => ({}))
   if (t.filler) return 0
   // No pointing with ⌥: the element under the mouse. No mouse yet: the middle of the screen.
@@ -217,7 +218,7 @@ function versions(cmd, user, base, ac, el) {
 // ask streams the reply of the design engine. The reply starts with the task name; onName shows it at once.
 // ponytail: a copy of the stream reading in model.js. Share it when a third mode needs it.
 async function ask(user, signal, onName, shown) {
-  const res = await fetch(VB + '/api/claude', { signal, method: 'POST', headers: { 'Content-Type': 'application/json' },
+  const res = await fetch(engineURL(), { signal, method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ id: Math.random().toString(36).slice(2, 10), model: MODEL, effort: EFFORT, shots: shown, messages: [{ role: 'system', content: system }, { role: 'user', content: user }] }) })
   if (!res.ok) throw new Error(res.status + ' ' + (await res.text()).slice(0, 200))
   const reader = res.body.pipeThrough(new TextDecoderStream()).getReader()
@@ -255,7 +256,7 @@ function travel(step) {
 }
 UI.update({ tools: true, canUndo: true, canRedo: true })
 // Start the engine now, so the first phrase does not wait for it.
-fetch(VB + '/prompt-code.txt').then(r => r.text()).then(t => fetch(VB + '/api/claude', { method: 'POST', body: JSON.stringify({ model: MODEL, effort: EFFORT, messages: [{ content: t }] }) })).catch(() => {})
+codeReady.then(() => { if (ENGINE === 'claude') return fetch(engineURL(), { method: 'POST', body: JSON.stringify({ model: MODEL, effort: EFFORT, messages: [{ content: system }] }) }) }).catch(() => {})
 // Test hooks: ?vsay=phrase&vpoint=css selector&vwait=ms says a phrase while pointing at that element, without hands.
 if (q.get('vsay')) setTimeout(() => {
   const t = q.get('vpoint') && document.querySelector(q.get('vpoint'))

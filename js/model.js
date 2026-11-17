@@ -176,16 +176,16 @@ async function ask(sec, cmd, full, version, signal) { // version: text for one o
   sec.zone = sec.marks = null
   let html = '', first = 0
   // One telemetry line per request. `wait` and `total` count from the last heard word: that is the delay the user feels.
-  const log = { id: Math.random().toString(36).slice(2, 10), engine: CLAUDE ? 'claude' : 'openrouter', model: MODEL, effort: EFFORT, cmd,
+  const log = { id: Math.random().toString(36).slice(2, 10), engine: ENGINE, model: MODEL, effort: EFFORT, cmd,
     retry: !!full && !version, version: !!version, look, partial: !!sec.partial, pointer: !!sec.point, base_chars: sec.html.length, wait_ms: Math.round(t0 - heardAt) }
   UI.update({ busy: ++asks > 0 })
   if (sec.point && point?.sec === sec) for (const el of point.els) el.classList.add('glow') // the user points at it: it changes
   try {
-    const res = await fetch(CLAUDE ? '/api/claude' : '/api/chat', {
+    const res = await fetch(engineURL(), {
       signal, method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         id: log.id, model: MODEL, effort: EFFORT, look, shots: shown, window: document.title, stream: true, temperature: 0, reasoning: { effort: EFFORT },
-        ...(PROVIDER && { provider: { only: [PROVIDER] } }),
+        ...(ENGINE === 'openrouter' && PROVIDER && { provider: { only: [PROVIDER] } }),
         messages: [
           { role: 'system', content: system },
           { role: 'user', content: `Page font: ${pageFont || 'none'}\n\nOther sections of the page:\n${live().map((o, i) => o === sec ? '' : `[section ${i + 1}]\n${o.html}`).filter(Boolean).join('\n') || '(none)'}\n\nCurrent HTML${sec.html ? ` (section ${live().indexOf(sec) + 1} of ${live().length})` : ''}:\n${sec.html || '(empty)'}\n\nSaid before:\n${saidBefore(sec) || '(nothing)'}\n\nPointer:\n${sec.point || '(none)'}\n\nNew speech:\n${cmd}${siteStyled ? '\n\nThis page is an existing site with its own stylesheet. Build new parts from the classes that its sections already use, so they look the same; use Tailwind only for what those classes do not cover.' : ''}${full ? '\n\nReply with the full section.' : ''}${version || ''}` },

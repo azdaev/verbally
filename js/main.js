@@ -1,9 +1,10 @@
 // Start: load the prompt, restore the page, warm the engine, then run the test hooks from the address.
 
 fetch('prompt.txt').then(r => r.text()).then(async t => {
+  await setupReady
   system = t
   // Start the Claude Code process now, so the first speech does not wait for it. It needs only the prompt, not the page.
-  if (CLAUDE) fetch('/api/claude', { method: 'POST', body: JSON.stringify({ model: MODEL, effort: EFFORT, messages: [{ content: system }] }) })
+  if (ENGINE === 'claude') fetch('/api/claude', { method: 'POST', body: JSON.stringify({ model: MODEL, effort: EFFORT, messages: [{ content: system }] }) })
   await restore()
   // ?import=1 opens the site from VERBALLY_SITE on an empty page. ?import=again loads it fresh over the page as one more step: undo brings the page back.
   if (q.get('import') && (!live().length || q.get('import') === 'again')) await importSite()
