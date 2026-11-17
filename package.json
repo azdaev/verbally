@@ -1,0 +1,26 @@
+{
+  "name": "verbally-ui",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build-ui.mjs",
+    "test": "node --test ui/*.test.js",
+    "test:ui": "node tests/ui/server.mjs"
+  },
+  "dependencies": {
+    "@radix-ui/react-radio-group": "^1.5.1",
+    "@radix-ui/react-slot": "^1.5.0",
+    "@radix-ui/react-tabs": "^1.2.1",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.74.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "tailwind-merge": "^3.7.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.3.5",
+    "esbuild": "^0.28.2",
+    "tailwindcss": "^4.3.5"
+  }
+}

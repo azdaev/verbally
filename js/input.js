@@ -8,7 +8,7 @@ let pointTimer
 // The zone is the box that the mouse covers while ⌥ is held. The user picks a place with the eyes, not by elements:
 // the model gets a picture of the zone first, and the elements under it as extra detail.
 let zone = null // { l, t, r, b } in page-window pixels
-const zoneBox = document.body.appendChild(Object.assign(document.createElement('div'), { id: 'zone' }))
+const zoneBox = UI.root.appendChild(Object.assign(document.createElement('div'), { id: 'zone' }))
 // Marks: the mouse stops for 0.4 s with ⌥ held, and a numbered square ① ② appears there. The words that the user said
 // at that moment get the same number ("this ① is bad, make it like this ②"), so the model knows which place each word means.
 // Accidental stops are fine: the model gets every mark with the words around it and ignores a mark that no word needs.
@@ -19,9 +19,9 @@ function addMark(x, y) {
   if (last && Math.hypot(last.x - x, last.y - y) < 60) return // the same place: one mark
   const w = 300, h = 200, l = Math.max(0, Math.min(x - w / 2, innerWidth - w)), t = Math.max(0, Math.min(y - h / 2, innerHeight - h))
   let el = document.elementFromPoint(x, y)?.closest(CODE ? '[data-vsrc]' : '#canvas > div *')
-  if (el?.closest('#bar, #tasks')) el = null
+  if (el?.closest('verbally-ui')) el = null
   const m = { n: NUM[Math.min(markCount++, 8)], x, y, l, t, r: l + w, b: t + h, at: performance.now() - 400, el, html: el ? bare(el) : '' }
-  m.box = document.body.appendChild(Object.assign(document.createElement('div'), { className: 'vb-mark', innerHTML: `<span>${m.n}</span>` }))
+  m.box = UI.root.appendChild(Object.assign(document.createElement('div'), { className: 'vb-mark', innerHTML: `<span>${m.n}</span>` }))
   Object.assign(m.box.style, { left: l + 'px', top: t + 'px', width: w + 'px', height: h + 'px' })
   marks.push(m)
   if (marks.length > 4) marks.shift().box.remove() // ponytail: the last 4 stops; a longer tour of the page is rare
@@ -38,8 +38,8 @@ const pointText = () => pointBase + marks.map(m => `\nMark ${m.n}, the element i
 const trail = $('trail'), ink = trail.getContext('2d')
 let dots = []
 
-document.onmousemove = e => {
-  if (!e.altKey) return
+addEventListener('mousemove', e => {
+  if (!e.altKey || UI.isUIEvent(e) || settingsOpen()) return
   if (!dots.length) requestAnimationFrame(drawTrail)
   dots.push({ x: e.clientX, y: e.clientY, t: performance.now() })
   const x0 = e.clientX, y0 = e.clientY
@@ -66,18 +66,18 @@ document.onmousemove = e => {
   pointBase = (els.length > 1 ? `The mouse passed over ${els.length} elements:\n` : '') + els.map(o => bare(o, els.length > 1 ? 200 : 300)).join('\n') + `\nMouse position now: ${x}% from the left, ${y}% from the top of the section.`
   point.text = pointText()
   const name = els.length > 1 ? els.length + ' elements' : el.innerText.trim().slice(0, 18) || el.localName
-  if ($('pt').textContent !== name) $('pt').textContent = name
+  if (UI.getSnapshot().pointer !== name) UI.update({ pointer: name })
   clearTimeout(pointTimer)
   // Nobody spoke: forget it. While the microphone is on, the user still talks about it.
   // A dictation app gives its text only after the speech, so there the pointer waits longer.
   pointTimer = setTimeout(() => on || unpoint(), dictation ? 30000 : 8000)
-}
+})
 // The place of the mouse, with or without ⌥: a phrase with no pointer is about the element under the mouse.
 let mouse = null
 addEventListener('mousemove', e => { mouse = { x: e.clientX, y: e.clientY } }, true)
 const underMouse = () => {
   const el = mouse && document.elementFromPoint(mouse.x, mouse.y)
-  return el && !el.closest('#bar, #tasks, #pick') ? el : null
+  return el && !el.closest('verbally-ui') ? el : null
 }
 
 function unpoint() {
@@ -89,7 +89,7 @@ function unpoint() {
   for (const m of marks) m.box.remove()
   marks = []
   markCount = 0
-  $('pt').textContent = ''
+  UI.update({ pointer: '' })
 }
 
 function drawTrail() {
@@ -123,73 +123,38 @@ let talk = {} // { app, key, code, recognizer } from the server: the dictation a
 
 // Settings (the gear): a window with three parts: voice, model, keys.
 // A choice stays in the browser. ?speech=, ?lang= and ?model= in the address win over it.
-const menu = $('menu'), set = name => [...menu.querySelectorAll(`[name=${name}]`)]
-$('more').onclick = () => menu.showModal()
-menu.onclick = e => {
-  if (e.target === menu) menu.close() // a click on the dark part around the window. No return value: `false` from onclick cancels the click on a radio button
-  const tab = e.target.closest('nav [data-tab]')
-  if (tab) for (const el of menu.querySelectorAll('[data-tab]')) el.localName === 'button' ? el.toggleAttribute('aria-current', el === tab) : el.hidden = el.dataset.tab !== tab.dataset.tab
-}
-const kbd = text => Object.assign(document.createElement('kbd'), { textContent: text })
-// Who listens: the dictation app that runs, Verbally's microphone, and the other known apps, off, so the user sees that they work too.
-function whoRows(d) {
-  const row = (value, name, how, tag, off) => `<label class="item opt${off ? ' off' : ''}"><input type="radio" name="speech" value="${value}"${off ? ' disabled' : ''}>`
-    + `<span><b>${name}</b>${how ? `<small>${how}</small>` : ''}</span>${tag ? `<i${off ? '' : ' class="run"'}>${tag}</i>` : ''}</label>`
-  $('m-who').innerHTML = [
-    d.app && row('dictation', d.app, 'Your dictation app. It listens with its own model.', 'Running'),
-    row('mic', "Verbally's microphone", 'Built in. Needs no other app.'),
-    ...(d.others || '').split(', ').filter(Boolean).map(n => row('', n, '', 'Not running', true)),
-  ].filter(Boolean).join('')
-}
-whoRows({})
+const settingsOpen = () => UI.getSnapshot().settingsOpen
 function showSettings() {
-  for (const r of set('speech')) r.checked = !r.disabled && r.value === (dictation ? 'dictation' : 'mic')
-  for (const r of set('model')) r.checked = r.value === MODEL
-  $('m-app-set').hidden = !dictation
-  $('m-mic-set').hidden = dictation
-  $('m-app-name').textContent = talk.app || 'Your dictation app'
-  $('m-app-key').replaceChildren(...(talk.key ? ['hold ', kbd(talk.key)] : ['the key of the app']))
-  const soniox = talk.recognizer === 'Soniox'
-  $('m-rec').textContent = soniox ? 'Soniox' : 'Chrome'
-  $('m-rec-how').textContent = soniox ? 'With your SONIOX_API_KEY.' : 'The audio goes to Google. Set SONIOX_API_KEY to use Soniox.'
-  const [lang] = set('lang')
-  if (![...lang.options].some(o => o.value === LANG)) lang.add(new Option(LANG, LANG))
-  lang.value = LANG
-  lang.closest('.item').hidden = soniox // Soniox finds the language itself
-  $('m-talk').replaceChildren(...(dictation ? (talk.key ? ['hold ', kbd(talk.key)] : ['the key of your app']) : ['hold ', kbd('⌥'), ' or ', kbd('Space')]))
-  $('mic').dataset.tip = dictation ? "Verbally's own microphone · click" : 'Talk · hold ⌥ Option or Space'
+  UI.update({ settings: { dictation, lang: LANG, model: MODEL, talk } })
 }
 showSettings()
-menu.onchange = e => {
-  const { name, value } = e.target
+UI.actions.setting = (name, value) => {
   localStorage.setItem('verbally.' + name, value)
   if (name === 'speech') dictation = value === 'dictation'
   if (name === 'lang') LANG = value
-  if (name === 'model') MODEL = value // the server starts an engine process for the new model at the next phrase
+  if (name === 'model') MODEL = value
   showSettings()
 }
 fetch(VB + '/api/setup').then(r => r.json()).then(d => {
   const once = name => !sessionStorage.getItem(name) && (sessionStorage.setItem(name, 1), true) // once for a tab, not at each reload after an edit
   if (d.update && once('verbally.update')) { // a newer release: say it, change nothing
     const c = chip('To get it, run in the terminal: verbally update', 'done')
-    c.querySelector('b').textContent = `Verbally ${d.update} is out`
+    c.update({ title: `Verbally ${d.update} is out` })
     leave(c, 9000)
   }
   talk = d
-  whoRows(d)
-  $('m-ver').textContent = 'Verbally ' + d.version + (d.update ? `. ${d.update} is out: run verbally update` : '')
   // Who wins: ?speech= in the address, then the user's choice in the settings, then what the server found.
   dictation = (q.get('speech') || (d.app && localStorage.getItem('verbally.speech')) || d.speech) === 'dictation'
   showSettings()
   if (!dictation || !once('verbally.told')) return
   const c = chip(d.key ? `Hold ${d.key}, point and talk` : 'Use its key, point with the mouse and talk', 'done')
-  c.querySelector('b').textContent = 'Speech: ' + (d.app || 'your dictation app')
+  c.update({ title: 'Speech: ' + (d.app || 'your dictation app') })
   leave(c, 7000)
 }).catch(() => {})
 addEventListener('paste', e => {
-  if (!dictation || menu.open) return
+  if (!dictation || settingsOpen() || UI.isUIEvent(e)) return
   // A paste into a text field of the app is the app's own business.
-  if (e.target.closest?.('input, textarea, [contenteditable]') && !e.target.closest('#bar')) return
+  if (isTextInput(e)) return
   const text = (e.clipboardData?.getData('text/plain') || '').trim()
   // ponytail: any ⌘V outside a text field counts as speech. The size limit keeps a pasted file out; undo covers the rest.
   if (!text || text.length > 1000) return
@@ -204,7 +169,7 @@ addEventListener('paste', e => {
 let on = false, stopMic = () => {}
 async function toggleMic() {
   on = !on
-  $('mic').classList.toggle('on', on)
+  UI.update({ mic: on })
   on ? waveOn() : waveOff()
   if (!on) return stopMic()
   const t0 = performance.now()
@@ -220,7 +185,7 @@ async function toggleMic() {
 const bars = [...$('wave').children]
 let waveCtx = null, hearsAt = 0, hearsTimer
 async function waveOn() {
-  $('bar').classList.add('rec')
+  UI.update({ recording: true })
   try { micStream ||= await navigator.mediaDevices.getUserMedia({ audio: true }) } catch { return }
   if (!on || waveCtx) return
   const ctx = waveCtx = new AudioContext(), an = ctx.createAnalyser(), data = new Uint8Array(32)
@@ -235,38 +200,38 @@ async function waveOn() {
   draw()
 }
 function waveOff() {
-  $('bar').classList.remove('rec')
+  UI.update({ recording: false })
   waveCtx?.close()
   waveCtx = null
   for (const b of bars) b.style.scale = ''
 }
-const says = text => { $('live').textContent = text; fit() }
+const says = text => UI.update({ live: text })
 function hearsOn() {
   clearTimeout(hearsTimer)
   hearsAt = performance.now()
-  $('bar').classList.remove('wait')
-  $('bar').classList.add('hears')
+  UI.update({ waiting: false })
+  UI.update({ hears: true })
   says(talk.app + ' is listening…')
 }
 function hearsOff() {
   if (!hearsAt) return
   const held = performance.now() - hearsAt
   hearsAt = 0
-  $('bar').classList.remove('hears')
+  UI.update({ hears: false })
   if (held < 400) return hearsDone() // a tap: the app records nothing
-  $('bar').classList.add('wait')
+  UI.update({ waiting: true })
   says('Waiting for ' + talk.app + '…')
   hearsTimer = setTimeout(() => {
     hearsDone()
     const c = chip(`Check that ${talk.app} has a microphone, and that it can paste into Chrome.`, 'err')
-    c.querySelector('b').textContent = talk.app + ' gave no text'
+    c.update({ title: talk.app + ' gave no text' })
     leave(c, 7000)
   }, 8000)
 }
 function hearsDone() {
   clearTimeout(hearsTimer)
-  $('bar').classList.remove('hears', 'wait')
-  if (/ is listening…$|^Waiting for /.test($('live').textContent)) says('')
+  UI.update({ hears: false, waiting: false })
+  if (/ is listening…$|^Waiting for /.test(UI.getSnapshot().live)) says('')
 }
 
 // The first word must not be lost, so nothing may wait between the key press and the recording:
@@ -385,13 +350,14 @@ function webSpeech() {
   return () => { on = false; rec.stop(); if ((done + partial).trim()) hear(done + partial, true); done = partial = '' }
 }
 
-$('mic').onclick = toggleMic
-$('back').onclick = () => travel(-1)
-$('fwd').onclick = () => travel(1)
+UI.actions.mic = toggleMic
+UI.actions.undo = () => travel(-1)
+UI.actions.redo = () => travel(1)
+UI.actions.cancel = task => cancel(task)
 // Clear needs no question: it is one more step of the history, so undo brings the page back.
-$('clear').onclick = () => smooth(() => { paint([]); save() })
+UI.actions.clear = () => smooth(() => { paint([]); save() })
 // ⌘Z in a text field is the field's own undo, not the page's.
-addEventListener('keydown', e => { if (e.metaKey && e.code === 'KeyZ' && !e.target.closest?.('input, textarea, [contenteditable]')) { e.preventDefault(); travel(e.shiftKey ? 1 : -1) } })
+addEventListener('keydown', e => { if (!settingsOpen() && e.metaKey && e.code === 'KeyZ' && !isTextInput(e)) { e.preventDefault(); travel(e.shiftKey ? 1 : -1) } })
 // The model cannot check an image address. A broken image gets a photo from the local photo store, found by its alt text.
 $('canvas')?.addEventListener('error', e => {
   const img = e.target
@@ -402,21 +368,21 @@ $('canvas')?.addEventListener('error', e => {
 }, true)
 // Space: hold to talk (push to talk), or tap to switch the microphone on and off.
 let downAt = 0, wasOn = false
-document.onkeydown = e => {
-  if (e.code !== 'Space' || e.target !== document.body) return
+addEventListener('keydown', e => {
+  if (e.code !== 'Space' || e.target !== document.body || settingsOpen()) return
   if (dictation) { if (e.altKey) e.preventDefault(); return } // a dictation key like ⌥ Space must not scroll the page
   e.preventDefault()
   if (e.repeat) return
   downAt = performance.now()
   wasOn = on
   if (!on) toggleMic()
-}
-document.onkeyup = e => {
+})
+addEventListener('keyup', e => {
   if (e.code !== 'Space' || !downAt) return
   const held = performance.now() - downAt > 350
   downAt = 0
   if (on && (held || wasOn)) toggleMic()
-}
+})
 
 // ⌥ Option held: point and talk with one key. The 0.2 s wait keeps shortcuts like ⌥⌘I and ⌥-letters from switching the microphone on.
 let cmdTimer, cmdTalk = false, deaf
@@ -424,14 +390,14 @@ addEventListener('keydown', e => {
   clearTimeout(cmdTimer)
   primed?.then(p => p.rec.stop()) // another key came: this is a shortcut, not speech
   primed = null
-  if (e.key !== 'Alt' || on || menu.open) return
+  if (e.key !== 'Alt' || on || settingsOpen()) return
   if (!e.repeat) unpoint() // a new press starts a new pointing
   if (dictation) { // the dictation app listens; here ⌥ only points
     if (talk.code === e.code && !e.repeat) hearsOn()
     // The other ⌥ than the app's talk key draws the trail too, so it looks like speech goes in. Say that nobody listens.
-    if (talk.code && e.code !== talk.code && !e.repeat && !deaf?.isConnected) {
+    if (talk.code && e.code !== talk.code && !e.repeat && !UI.getSnapshot().tasks.some(t => t.id === deaf?.id)) {
       deaf = chip(`To talk, hold ${talk.key}. This ⌥ only points.`, 'err')
-      deaf.querySelector('b').textContent = talk.app + ' does not hear this key'
+      deaf.update({ title: talk.app + ' does not hear this key' })
       leave(deaf, 5000)
     }
     return

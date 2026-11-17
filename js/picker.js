@@ -5,36 +5,15 @@
 // "Use this" keeps the shown version. "Cancel" brings the page back as it was. Keys: arrows move, Enter uses, Esc cancels.
 // It serves two cases: the images that the model offers for one <img> (data-choices), and layouts of a section built side by side.
 let picking = null // the section whose layouts the picker shows now
-let chosen = null // keeps the version that the page shows now
-function pickOpen(title, wide, cancel) {
-  $('pick').hidden = false
-  $('pick').classList.toggle('wide', wide)
-  $('pickTitle').textContent = title
-  $('pick').querySelector('.grid').replaceChildren()
-  chosen = null
-  $('pickUse').disabled = true
-  $('pickUse').onclick = () => chosen?.()
-  $('pickKeep').onclick = cancel
-}
-function pickAdd(thumb, view, keep, now) {
-  const grid = $('pick').querySelector('.grid'), b = document.createElement('button')
-  b.className = now ? 'now' : ''
-  b.append(thumb, Object.assign(document.createElement('i'), { textContent: grid.children.length + 1 }))
-  b.onclick = () => {
-    for (const o of grid.children) o.classList.toggle('now', o === b)
-    chosen = keep
-    $('pickUse').disabled = false
-    view()
-  }
-  grid.append(b)
-}
+const pickOpen = (title, wide, cancel) => UI.openPicker(title, wide, cancel)
+const pickAdd = (thumb, view, keep, now) => UI.addChoice(thumb, view, keep, now)
 addEventListener('keydown', e => {
-  if ($('pick').hidden) return
-  const all = [...$('pick').querySelectorAll('.grid button')], at = all.findIndex(b => b.classList.contains('now'))
-  if (e.key === 'Enter') $('pickUse').click()
-  else if (e.key === 'Escape') $('pickKeep').click()
-  else if (e.key === 'ArrowRight') all[Math.min(all.length - 1, at + 1)]?.click()
-  else if (e.key === 'ArrowLeft') all[Math.max(0, at - 1)]?.click()
+  const p = UI.getSnapshot().picker
+  if (!p || UI.getSnapshot().settingsOpen || isTextInput(e)) return
+  if (e.key === 'Enter' && !UI.isUIEvent(e)) UI.keepChoice()
+  else if (e.key === 'Escape') UI.cancelChoice()
+  else if (e.key === 'ArrowRight') UI.choose(Math.min(p.items.length - 1, p.selected + 1))
+  else if (e.key === 'ArrowLeft') UI.choose(Math.max(0, p.selected - 1))
   else return
   e.preventDefault()
 })
@@ -45,8 +24,7 @@ addEventListener('keydown', e => {
 function offer() {
   if (picking) return
   const sec = [...$('canvas').children].find(s => s.html && /<img\b[^>]*\bdata-choices="/.test(s.html))
-  $('pick').hidden = !sec
-  if (!sec) return
+  if (!sec) return UI.closePicker()
   const img = () => sec.querySelector('img[data-choices]')
   const now = img().getAttribute('src')
   const options = [...new Set([now, ...img().dataset.choices.split('|').map(o => o.trim()).filter(Boolean)])]
@@ -95,16 +73,16 @@ function layouts(sec, cmd, n, built, el) {
     if (html) split(sec)
     save()
     tele({ event: 'picked_layout', picked: !!html, of: built.length })
-    if (el) el.classList.add('done'), leave(el, 1400)
+    if (el) el.update({ kind: 'done' }), leave(el, 1400)
     localStorage.removeItem(key)
     sec.stop?.() // the layouts that are not ready are not needed now: their Claude processes stop
     sec.busy = false
     picking = null
-    $('pick').hidden = true
+    UI.closePicker()
     offer()
     pump(sec)
   }
-  const title = () => $('pickTitle').textContent = built.length < n ? `Building ${n} layouts… ${built.length} ready` : 'Pick a layout'
+  const title = () => UI.pickerTitle(built.length < n ? `Building ${n} layouts… ${built.length} ready` : 'Pick a layout')
   const add = (v, old) => { // v: { k: the number of its layout idea, html }
     if (picking !== sec) return
     if (!old) built.push(v), keepAll()
@@ -143,5 +121,5 @@ async function versions(sec, cmd, el, old) {
   sec.stop = null
   if (leaving) return // the page reloads and its requests break: the job stays in storage and goes on after the reload
   if (picking === sec && !built.length) end('') // every request failed; the error is in the bar
-  else if (picking === sec) $('pickTitle').textContent = 'Pick a layout'
+  else if (picking === sec) UI.pickerTitle('Pick a layout')
 }

@@ -32,8 +32,7 @@ const above = () => { const end = live().at(-1); return isFooter(end) ? end.prev
 function hear(text, final) {
   const cmd = text.replace(/^[\s.,;:!?-]+/, '').trim() // the recognizer leaves punctuation at the start
   if (point) spoke = point
-  $('live').textContent = final ? '' : cmd
-  fit()
+  UI.update({ live: final ? '' : cmd })
   if (!final) {
     if (!WAIT) { cur.partial = cmd; cur.heardAt = performance.now(); pump(cur) }
     // The user made a short stop: ask Jev now. The end of the phrase comes 0.5 s later and finds the answer ready.
@@ -53,7 +52,7 @@ function hear(text, final) {
   gate = gate.then(built).then(() => triage(cmd)).then(t => {
     if (el.cancelled) return
     if (t.filler) { // nothing to act on: Claude never gets it
-      el.classList.add('skip')
+      el.update({ kind: 'skip' })
       leave(el, 900)
       tele({ event: 'filler', text: cmd })
       return
@@ -72,7 +71,7 @@ function hear(text, final) {
     tele({ event: 'route', text: cmd, by: direct ? (live().length ? 'pointer' : 'empty') : t.target ?? (recent ? 'recent' : 'view'), sections: targets.map(sec => [...$('canvas').children].indexOf(sec)) })
     el.n = targets.length
     for (const sec of targets) {
-      if (t.look) { sec.look = true; el.classList.add('look') }
+      if (t.look) { sec.look = true; el.update({ look: true }) }
       if (sec === pointed?.sec) sec.point = pointed.text, sec.zone = pointed.zone, sec.marks = pointed.marks
       sec.heardAt = heardAt
       sec.pending = (sec.pending + ' ' + cmd).trim()
@@ -158,8 +157,8 @@ function cancel(el) {
   }
   el.stop?.()
   keepTodo()
-  tele({ event: 'cancel', text: el.querySelector('small').textContent })
-  el.classList.add('skip')
+  tele({ event: 'cancel', text: el.text })
+  el.update({ kind: 'skip' })
   leave(el, 300)
 }
 
@@ -179,7 +178,7 @@ async function ask(sec, cmd, full, version, signal) { // version: text for one o
   // One telemetry line per request. `wait` and `total` count from the last heard word: that is the delay the user feels.
   const log = { id: Math.random().toString(36).slice(2, 10), engine: CLAUDE ? 'claude' : 'openrouter', model: MODEL, effort: EFFORT, cmd,
     retry: !!full && !version, version: !!version, look, partial: !!sec.partial, pointer: !!sec.point, base_chars: sec.html.length, wait_ms: Math.round(t0 - heardAt) }
-  $('bar').classList.toggle('busy', ++asks > 0)
+  UI.update({ busy: ++asks > 0 })
   if (sec.point && point?.sec === sec) for (const el of point.els) el.classList.add('glow') // the user points at it: it changes
   try {
     const res = await fetch(CLAUDE ? '/api/claude' : '/api/chat', {
@@ -210,7 +209,7 @@ async function ask(sec, cmd, full, version, signal) { // version: text for one o
       }
       // The reply starts with a name of the task: the cards of its phrases show it.
       const name = !version && html.match(/<!--\s*task:\s*([\s\S]*?)-->/)?.[1].trim()
-      if (name) for (const p of sec.phrases) if (cmd.includes(p.text)) p.el.querySelector('b').textContent = name
+      if (name) for (const p of sec.phrases) if (cmd.includes(p.text)) p.el.update({ title: name })
       if (html && !first) first = performance.now() - t0
       // A new section grows token by token. An edit swaps once at the end, so the section does not collapse and regrow.
       if (version) continue
@@ -234,7 +233,7 @@ async function ask(sec, cmd, full, version, signal) { // version: text for one o
     if (e.name !== 'AbortError') note(e.message) // the user cancelled the layouts: no error
     return ''
   } finally {
-    $('bar').classList.toggle('busy', --asks > 0)
+    UI.update({ busy: --asks > 0 })
     log.done_ms = Math.round(performance.now() - t0)
     log.total_ms = Math.round(performance.now() - heardAt)
     tele(log)

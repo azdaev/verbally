@@ -118,3 +118,37 @@ The code is small and has no build step: Go for the server, plain JavaScript for
 ## License
 
 MIT. See [LICENSE](../LICENSE). `lib/glimm.js` is MIT too, see `lib/glimm.LICENSE`.
+
+## Develop the interface
+
+The controls use React and shadcn/ui. They run inside a Shadow DOM in both modes.
+The engine scripts keep ownership of speech, requests, page changes, and code changes.
+The interface store connects those scripts to React.
+
+Install Node 22 or newer. Build the interface before a Go build:
+
+```sh
+npm ci
+npm run build
+npm test
+go test ./...
+go vet ./...
+VERBALLY_DEV=1 go run .
+```
+
+Edit components in `ui/`. Rebuild after each change, then reload Chrome.
+Commit `js/ui.js` and its license file with the source changes.
+These generated files let `go install` work without Node during installation.
+The release script builds the interface before it builds the programs.
+
+Run the browser fixtures:
+
+```sh
+npm run test:ui
+```
+
+Open `http://127.0.0.1:18788/` in visible Chrome and press **Run checks**.
+Then open `http://127.0.0.1:18788/code` and run its checks.
+The fixtures cover settings, style isolation, task states, versions, cancellation, and history.
+They use deterministic replies and an in-memory code file.
+They do not verify speech recognition or model quality.

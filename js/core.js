@@ -21,7 +21,9 @@ const JEV = CLAUDE && !q.get('nojev')
 const CODE = !!window.VERBALLY_CODE, VB = window.VERBALLY_BASE || ''
 if (!CODE) document.title = 'Verbally ' + Math.random().toString(36).slice(2, 6)
 
-const $ = id => document.getElementById(id)
+const UI = window.VerballyUI
+const isTextInput = e => e.composedPath().some(el => el.matches?.('input, textarea, [contenteditable]'))
+const $ = id => id === 'canvas' ? document.getElementById(id) : UI.root.getElementById(id)
 // tele adds one event to telemetry.jsonl, so a lost phrase or a silent change of recognizer can be found later.
 const tele = v => fetch(VB + '/api/log', { method: 'POST', body: JSON.stringify(v), keepalive: true }).catch(() => {})
 // A script error goes to the telemetry too: a broken page after a change shows there, not only in the browser console.
@@ -33,7 +35,7 @@ const check = (ok, name) => { if (!ok) throw new Error('self-check failed: ' + n
 // ponytail: the browser bar is taken as outerHeight - innerHeight; docked DevTools at the bottom shift it.
 // shots: what Claude sees of the pointing — the zone around the whole mouse path, and a square at each stop of the mouse (① ②).
 const shots = (zone, marks = []) => [...(zone ? [{ ...screenRect(zone), label: 'The zone: the box around the whole path of the mouse' }] : []),
-  ...marks.map(m => ({ ...screenRect(m), label: `Mark ${m.n}: the mouse stopped here` }))]
+  ...(marks || []).map(m => ({ ...screenRect(m), label: `Mark ${m.n}: the mouse stopped here` }))]
 const screenRect = z => z && { x: Math.round(screenX + z.l - 16), y: Math.round(screenY + outerHeight - innerHeight + z.t - 16), w: Math.round(z.r - z.l + 32), h: Math.round(z.b - z.t + 32) }
 // sweep: a glimm band (lib/glimm.js, MIT, glimm.dev) passes over the changed box, and the change shows behind it.
 // swap runs when the band covers the box; sweep returns what swap returns. No WebGL or reduced motion: swap at once.
@@ -47,7 +49,7 @@ async function sweep(r, swap = () => {}) {
   if (!(r?.width > 0 && r.height > 0) || document.hidden || matchMedia('(prefers-reduced-motion: reduce)').matches) return swap()
   glimm ||= import(VB + '/lib/glimm.js')
   const { createShader, playSweep } = await glimm.catch(() => ({}))
-  const canvas = document.body.appendChild(Object.assign(document.createElement('canvas'), { className: 'sweep' }))
+  const canvas = UI.root.appendChild(Object.assign(document.createElement('canvas'), { className: 'sweep' }))
   Object.assign(canvas.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px' })
   const ctrl = createShader?.({ canvas })
   if (!ctrl) { canvas.remove(); return swap() }
@@ -68,23 +70,11 @@ const box = els => els.length && els.map(e => e.getBoundingClientRect()).reduce(
 // smooth swaps the page with a short cross-fade where the browser can do it.
 const smooth = draw => document.startViewTransition ? document.startViewTransition(draw) : draw()
 
-// The bar shows speech as it is used: one chip per finished phrase, then the words that can still change.
-// fit gives the bar the width of its content, so it grows and shrinks with one smooth move.
-function fit() {
-  $('say').style.width = $('live').textContent ? $('heard').offsetWidth + 'px' : '0px'
-  $('say').classList.toggle('over', $('heard').offsetWidth > 420)
-}
-new ResizeObserver(fit).observe($('heard')) // a late font or a check mark changes the width
-function chip(text, kind) {
-  const el = Object.assign(document.createElement('div'), { className: 'ph ' + (kind || '') })
-  el.append(document.createElement('b'), Object.assign(document.createElement('small'), { textContent: text }))
-  if (kind !== 'err') el.append(Object.assign(document.createElement('button'), { className: 'x', textContent: '×', title: 'Cancel', onclick: () => cancel(el) }))
-  $('tasks').append(el)
-  return el
-}
-function leave(el, after) {
-  setTimeout(() => el.classList.add('out'), after)
-  setTimeout(() => el.remove(), after + 300)
+// Task handles contain engine metadata; React renders their state.
+const chip = (text, kind) => UI.task(text, kind)
+function leave(task, after) {
+  setTimeout(() => task.update({ out: true }), after)
+  setTimeout(() => task.remove(), after + 300)
 }
 // keepTodo keeps the phrases that Claude has not finished, so a reload does not lose them: the page says them again.
 const keepTodo = () => PAGE && localStorage.setItem('verbally.' + PAGE + '.todo',
@@ -94,7 +84,7 @@ function settle(sec) {
   while (sec.phrases.length && !sec.pending.endsWith(sec.phrases.map(p => p.text).join(' '))) {
     const { el } = sec.phrases.shift()
     if (--el.n > 0) continue // a phrase for the whole page: its chip waits for the last section
-    el.classList.add('done')
+    el.update({ kind: 'done' })
     leave(el, 1400)
   }
 }
