@@ -72,7 +72,7 @@ function hear(text, final) {
     el.n = targets.length
     for (const sec of targets) {
       if (t.look) { sec.look = true; el.update({ look: true }) }
-      if (sec === pointed?.sec) sec.point = pointed.text, sec.zone = pointed.zone, sec.marks = pointed.marks
+      if (sec === pointed?.sec) sec.point = pointed.text, sec.zone = pointed.zone
       sec.heardAt = heardAt
       sec.pending = (sec.pending + ' ' + cmd).trim()
       sec.phrases.push({ text: cmd, el, all: targets.length > 1, pointed: sec === pointed?.sec })
@@ -171,9 +171,9 @@ const saidBefore = sec => [...$('canvas').children].filter(o => o !== sec).conca
 async function ask(sec, cmd, full, version, signal) { // version: text for one of several layouts; such a request draws nothing on the page
   const t0 = performance.now(), heardAt = sec.heardAt
   const look = sec.look // Jev said that this speech judges the look: Claude gets a screenshot
-  const shown = shots(sec.zone, sec.marks) // what the user showed with ⌥: Claude gets a picture of each part
+  const shown = shots(sec.zone) // what the user drew with ⌥: Claude gets the window with the ink on it
   sec.look = false
-  sec.zone = sec.marks = null
+  sec.zone = null
   let html = '', first = 0
   // One telemetry line per request. `wait` and `total` count from the last heard word: that is the delay the user feels.
   const log = { id: Math.random().toString(36).slice(2, 10), engine: ENGINE, model: MODEL, effort: EFFORT, cmd,

@@ -8,7 +8,6 @@ body:not(.vb-code) > #canvas > div.cur:not(:empty) { outline-color: var(--vb-fil
 body:not(.vb-code) > #canvas > div.busy:empty { min-height: 160px; background: var(--vb-sunken); animation: wait 1s ease-in-out infinite alternate; }
 @keyframes wait { from { opacity: 1; } to { opacity: .45; } }
 /* White plus accent: one of them shows on any background. */
-:is(#canvas, .vb-code) .point { outline: 1px dashed color-mix(in srgb, var(--vb-accent) 70%, transparent); outline-offset: 2px; box-shadow: 0 0 0 1px rgba(255, 255, 255, .6); }
 :is(#canvas, .vb-code) .glow { outline: 0; border-radius: 6px; animation: glow .8s ease-in-out infinite alternate; }
 @keyframes glow { from { box-shadow: 0 0 0 2px rgba(255, 255, 255, .35), 0 0 0 4px color-mix(in srgb, var(--vb-accent) 25%, transparent), 0 0 0 rgba(255, 255, 255, 0); }
                   to { box-shadow: 0 0 0 2px rgba(255, 255, 255, .95), 0 0 0 4px color-mix(in srgb, var(--vb-accent) 85%, transparent), 0 0 32px 6px rgba(255, 255, 255, .45); } }

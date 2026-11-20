@@ -5,7 +5,8 @@ const q = new URLSearchParams(location.search)
 let ENGINE = 'claude', MODEL = '', WAIT = true, JEV = true
 const engineModelKey = engine => engine === 'claude' ? 'verbally.model' : 'verbally.' + engine + '.model'
 function selectEngine(engine, initial = false) {
-  ENGINE = ['claude', 'codex', 'openrouter'].includes(engine) ? engine : 'claude'
+  // Code mode reads only engine streams; OpenRouter there would end in an empty reply with no error.
+  ENGINE = ['claude', 'codex', ...(window.VERBALLY_CODE ? [] : ['openrouter'])].includes(engine) ? engine : 'claude'
   MODEL = (initial && q.get('model')) || localStorage.getItem(engineModelKey(ENGINE))
     || ({ claude: 'claude-opus-5-5', codex: '', openrouter: 'openai/gpt-oss-120b' })[ENGINE]
   WAIT = ENGINE !== 'openrouter' && !q.get('partial')
@@ -38,9 +39,10 @@ addEventListener('unhandledrejection', e => tele({ event: 'js_error', error: Str
 const check = (ok, name) => { if (!ok) throw new Error('self-check failed: ' + name) }
 // screenRect turns a box in the page into points on the screen, for a screenshot of that part of the screen.
 // ponytail: the browser bar is taken as outerHeight - innerHeight; docked DevTools at the bottom shift it.
-// shots: what Claude sees of the pointing — the zone around the whole mouse path, and a square at each stop of the mouse (① ②).
-const shots = (zone, marks = []) => [...(zone ? [{ ...screenRect(zone), label: 'The zone: the box around the whole path of the mouse' }] : []),
-  ...(marks || []).map(m => ({ ...screenRect(m), label: `Mark ${m.n}: the mouse stopped here` }))]
+// shots: what Claude sees of the pointing — the whole window with the user's ink on it, while the ink is still on screen.
+// The window, not a crop of the ink: the drawing means something only with the page around it.
+const shots = zone => zone ? [{ ...screenRect({ l: 16, t: 16, r: innerWidth - 16, b: innerHeight - 16 }),
+  label: 'The window as the user sees it, with the user\'s ink on it: a circle, line or arrow drawn with the mouse shows what the speech is about. A numbered dot is where the mouse stopped' }] : []
 const screenRect = z => z && { x: Math.round(screenX + z.l - 16), y: Math.round(screenY + outerHeight - innerHeight + z.t - 16), w: Math.round(z.r - z.l + 32), h: Math.round(z.b - z.t + 32) }
 // sweep: a glimm band (lib/glimm.js, MIT, glimm.dev) passes over the changed box, and the change shows behind it.
 // swap runs when the band covers the box; sweep returns what swap returns. No WebGL or reduced motion: swap at once.

@@ -1,55 +1,53 @@
 // Input: pointing with ⌥ Option, the microphone, keys and the bar buttons.
 
 // Pointing: hold ⌥ Option and move the mouse. Only then the model sees the mouse, so "here" and "this one" work.
-// The mouse can pass over several elements ("these cards"): the model gets all of them, up to 8.
-// The trail tells the user that the mouse is seen now. The marked elements stay marked until the next speech uses them.
+// The mouse draws ink on the page, like a marker on a screenshot: circle a card, underline a word, draw an arrow.
+// The ink stays until the speech uses it, and the model gets a screenshot of the window with the ink on it first.
+// The elements under the ink go to the model as text, as extra detail: up to 8.
 let point = null // { sec, els, text, zone } - what the user pointed at last
 let pointTimer
-// The zone is the box that the mouse covers while ⌥ is held. The user picks a place with the eyes, not by elements:
-// the model gets a picture of the zone first, and the elements under it as extra detail.
-let zone = null // { l, t, r, b } in page-window pixels
-const zoneBox = UI.root.appendChild(Object.assign(document.createElement('div'), { id: 'zone' }))
-// Marks: the mouse stops for 0.4 s with ⌥ held, and a numbered square ① ② appears there. The words that the user said
-// at that moment get the same number ("this ① is bad, make it like this ②"), so the model knows which place each word means.
-// Accidental stops are fine: the model gets every mark with the words around it and ignores a mark that no word needs.
+let zone = null // { l, t, r, b } in page-window pixels: the box around all the ink. It says that there is ink to show.
+// Marks: the mouse stops for 0.4 s with ⌥ held, and a numbered dot ① ② appears there; the next move starts a new stroke.
+// The words that the user said at that moment get the same number ("this ① is bad, make it like this ②"),
+// so the model knows which place each word means. The model ignores a mark that no word needs.
 const NUM = '①②③④⑤⑥⑦⑧⑨'
 let marks = [], stillTimer, markCount = 0
-function addMark(x, y) {
+let strokes = [] // the ink: lists of points in page pixels, so the ink scrolls with the page
+function addMark(x, y) { // x, y in page pixels
+  strokes.push([]) // the next move draws a new stroke, so the mark sits at the end of this one
   const last = marks.at(-1)
   if (last && Math.hypot(last.x - x, last.y - y) < 60) return // the same place: one mark
-  const w = 300, h = 200, l = Math.max(0, Math.min(x - w / 2, innerWidth - w)), t = Math.max(0, Math.min(y - h / 2, innerHeight - h))
-  let el = document.elementFromPoint(x, y)?.closest(CODE ? '[data-vsrc]' : '#canvas > div *')
+  let el = document.elementFromPoint(x - scrollX, y - scrollY)?.closest(CODE ? '[data-vsrc]' : '#canvas > div *')
   if (el?.closest('verbally-ui')) el = null
-  const m = { n: NUM[Math.min(markCount++, 8)], x, y, l, t, r: l + w, b: t + h, at: performance.now() - 400, el, html: el ? bare(el) : '' }
-  m.box = UI.root.appendChild(Object.assign(document.createElement('div'), { className: 'vb-mark', innerHTML: `<span>${m.n}</span>` }))
-  Object.assign(m.box.style, { left: l + 'px', top: t + 'px', width: w + 'px', height: h + 'px' })
+  const m = { n: NUM[Math.min(markCount++, 8)], x, y, at: performance.now() - 400, el, html: el ? bare(el) : '' }
+  m.box = UI.root.appendChild(Object.assign(document.createElement('div'), { className: 'vb-mark', textContent: NUM.indexOf(m.n) + 1 }))
   marks.push(m)
+  drawing ||= requestAnimationFrame(drawInk) // drawInk places the dot
   if (marks.length > 4) marks.shift().box.remove() // ponytail: the last 4 stops; a longer tour of the page is rare
   if (point) point.text = pointText()
 }
 // bare gives the HTML of an element without the tool's own classes, short.
 function bare(o, n = 300) {
   const copy = o.cloneNode(true)
-  for (const c of [copy, ...copy.querySelectorAll('.point, .glow')]) { c.classList.remove('point', 'glow'); if (!c.classList.length) c.removeAttribute('class') }
+  for (const c of [copy, ...copy.querySelectorAll('.glow')]) { c.classList.remove('glow'); if (!c.classList.length) c.removeAttribute('class') }
   return copy.outerHTML.slice(0, n)
 }
 let pointBase = ''
-const pointText = () => pointBase + marks.map(m => `\nMark ${m.n}, the element in its middle: ${m.html || '(none)'}`).join('')
+const pointText = () => pointBase + marks.map(m => `\nDot ${m.n}, the element under it: ${m.html || '(none)'}`).join('')
 const trail = $('trail'), ink = trail.getContext('2d')
-let dots = []
+let drawing = 0
 
 addEventListener('mousemove', e => {
   if (!e.altKey || UI.isUIEvent(e) || settingsOpen()) return
-  if (!dots.length) requestAnimationFrame(drawTrail)
-  dots.push({ x: e.clientX, y: e.clientY, t: performance.now() })
   const x0 = e.clientX, y0 = e.clientY
+  if (!strokes.length) strokes.push([])
+  const px = x0 + scrollX, py = y0 + scrollY
+  strokes.at(-1).push({ x: px, y: py })
+  drawing ||= requestAnimationFrame(drawInk)
   zone = zone ? { l: Math.min(zone.l, x0), t: Math.min(zone.t, y0), r: Math.max(zone.r, x0), b: Math.max(zone.b, y0) } : { l: x0, t: y0, r: x0, b: y0 }
-  const pad = 16 // the drawn box holds the stroke with some air around it
-  Object.assign(zoneBox.style, { left: zone.l - pad + 'px', top: zone.t - pad + 'px', width: zone.r - zone.l + 2 * pad + 'px', height: zone.b - zone.t + 2 * pad + 'px' })
-  zoneBox.classList.add('on')
   if (point) point.zone = zone
   clearTimeout(stillTimer)
-  stillTimer = setTimeout(() => addMark(x0, y0), 400)
+  stillTimer = setTimeout(() => addMark(px, py), 400)
   const el = e.target.closest(CODE ? '[data-vsrc]' : '#canvas > div *')
   if (!el || el.closest('#bar, #tasks')) return
   const sec = CODE ? document.body : el.closest('#canvas > div') // code mode has no sections: the whole app is one place
@@ -58,8 +56,6 @@ addEventListener('mousemove', e => {
   point ||= { sec, els: [], text: '', zone, marks }
   // On the way from one element to the next the mouse crosses the box that holds them. So an element that holds a marked element does not count.
   const els = [...new Set([...point.els, el])].filter((a, _, all) => !all.some(b => a !== b && a.contains(b))).slice(-8)
-  for (const o of point.els) o.classList.remove('point')
-  for (const o of els) o.classList.add('point')
   const r = sec.getBoundingClientRect()
   const x = Math.round((e.clientX - r.left) / r.width * 100), y = Math.round((e.clientY - r.top) / r.height * 100)
   point.els = els
@@ -81,10 +77,10 @@ const underMouse = () => {
 }
 
 function unpoint() {
-  for (const el of point?.els || []) el.classList.remove('point')
   point = null
   zone = null
-  zoneBox.classList.remove('on')
+  strokes = []
+  drawing ||= requestAnimationFrame(drawInk)
   clearTimeout(stillTimer)
   for (const m of marks) m.box.remove()
   marks = []
@@ -92,26 +88,32 @@ function unpoint() {
   UI.update({ pointer: '' })
 }
 
-function drawTrail() {
-  const now = performance.now(), dpr = devicePixelRatio
-  if (trail.width !== innerWidth * dpr) { trail.width = innerWidth * dpr; trail.height = innerHeight * dpr }
-  dots = dots.filter(d => now - d.t < 600)
+// drawInk draws all strokes again, smoothed through the middles of the mouse points.
+// The points are in page pixels: the canvas shifts by the scroll, and so do the numbered dots.
+function drawInk() {
+  drawing = 0
+  const dpr = devicePixelRatio
+  if (trail.width !== innerWidth * dpr || trail.height !== innerHeight * dpr) { trail.width = innerWidth * dpr; trail.height = innerHeight * dpr }
   ink.setTransform(dpr, 0, 0, dpr, 0, 0)
   ink.clearRect(0, 0, innerWidth, innerHeight)
-  ink.lineCap = 'round'
-  for (const [colour, width] of [['255,255,255', 9], ['99,102,241', 5]]) { // white under indigo: visible on any background
-    for (let i = 1; i < dots.length; i++) {
-      const age = 1 - (now - dots[i].t) / 600
-      ink.strokeStyle = `rgba(${colour},${age * .9})`
-      ink.lineWidth = width * age
+  ink.translate(-scrollX, -scrollY)
+  for (const m of marks) Object.assign(m.box.style, { left: m.x - scrollX + 'px', top: m.y - scrollY + 'px' })
+  ink.lineCap = ink.lineJoin = 'round'
+  for (const [colour, width] of [['#fff', 8], ['#6366f1', 4]]) { // white under indigo: visible on any background, and in the screenshot
+    ink.strokeStyle = colour
+    ink.lineWidth = width
+    for (const p of strokes) {
+      if (p.length < 2) continue
       ink.beginPath()
-      ink.moveTo(dots[i - 1].x, dots[i - 1].y)
-      ink.lineTo(dots[i].x, dots[i].y)
+      ink.moveTo(p[0].x, p[0].y)
+      for (let i = 1; i < p.length - 1; i++) ink.quadraticCurveTo(p[i].x, p[i].y, (p[i].x + p[i + 1].x) / 2, (p[i].y + p[i + 1].y) / 2)
+      ink.lineTo(p.at(-1).x, p.at(-1).y)
       ink.stroke()
     }
   }
-  if (dots.length) requestAnimationFrame(drawTrail)
 }
+addEventListener('resize', () => drawing ||= requestAnimationFrame(drawInk))
+addEventListener('scroll', () => strokes.length && (drawing ||= requestAnimationFrame(drawInk)), { passive: true })
 
 // Dictation: the user's own dictation app (Hex, Handy, Wispr Flow) listens, and its text arrives as a paste (⌘V).
 // Then Verbally's own microphone stays off for the keys: ⌥ only points, Space is a plain key. A click on the microphone still starts it.

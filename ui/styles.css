@@ -280,7 +280,7 @@
  --color-border: var(--border); --color-input: var(--input); --color-ring: var(--ring); --color-destructive: var(--destructive); }
 #bar, #pick, #menu { pointer-events: auto; }
 #trail { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; }
-#zone, .vb-mark, canvas.sweep { pointer-events: none; }
+.vb-mark, canvas.sweep { pointer-events: none; }
 #menu .settings-tabs { display: flex; flex-direction: column; width: 100%; height: auto; padding: 0; background: none; align-items: stretch; }
 #menu .settings-layout { gap: 0; }
 #menu [role=tabpanel] { margin: 0; }
@@ -299,16 +299,11 @@
 #tasks .ph:focus-within .x { opacity: 1; }
 @media (max-width: 560px) { #menu .settings-tabs { flex-direction: row; } #menu nav button { width: auto; } #tasks .ph { max-width: calc(100vw - 44px); } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0s !important; transition-duration: 0s !important; } }
-/* The zone that ⌥ + mouse draws: what the model will see as a picture. */
-#zone { position: fixed; z-index: 10; pointer-events: none; border: 1.5px dashed var(--vb-accent); border-radius: 10px; background: var(--vb-accent-soft);
-        box-shadow: 0 0 0 1px rgba(255, 255, 255, .7); opacity: 0; transition: opacity .2s; }
-#zone.on { opacity: 1; }
-/* A mark: the mouse stopped here with ⌥ held. The number is the one that the speech gets at that moment. */
-.vb-mark { position: fixed; z-index: 10; pointer-events: none; border: 2px solid var(--vb-accent); border-radius: var(--vb-radius-md); background: var(--vb-accent-soft);
-        box-shadow: 0 0 0 1px rgba(255, 255, 255, .8); display: flex; align-items: flex-start; justify-content: flex-start; padding: 6px; box-sizing: border-box;
-        animation: mark-in .25s cubic-bezier(.22, 1, .36, 1); }
-.vb-mark span { font: 600 15px/1 var(--vb-font); color: #fff; background: var(--vb-accent); border-radius: var(--vb-radius-full); padding: 4px 7px; }
-@keyframes mark-in { from { opacity: 0; transform: scale(.96); filter: blur(4px); } }
+/* A mark: the mouse stopped here with ⌥ held. The number is the one that the speech gets at that moment. It sits on the end of the ink. */
+.vb-mark { position: fixed; z-index: 10; pointer-events: none; width: 22px; height: 22px; margin: -28px 0 0 -6px; box-sizing: border-box;
+        display: grid; place-items: center; border-radius: var(--vb-radius-full); background: var(--vb-accent); color: #fff; font: 600 12px/1 var(--vb-font);
+        box-shadow: 0 0 0 2px #fff, 0 2px 6px rgba(0, 0, 0, .2); animation: mark-in .25s var(--vb-pop); }
+@keyframes mark-in { from { opacity: 0; transform: scale(.5); } }
 canvas.sweep { position: fixed; z-index: 10; pointer-events: none; }
 #trail { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 10; }
 #menu .settings-tabs { flex: 0 0 auto; justify-content: flex-start; }

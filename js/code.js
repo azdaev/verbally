@@ -92,7 +92,7 @@ async function change(cmd, pointed, el) {
         + (said.length ? `\n\nSaid before, oldest first. Each was done. When the new speech repeats one, that change did not work: do it another way, and enough to be visible:\n${said.join('\n')}` : '')
         + `\n\nPointer:\n${pointed?.text || `(the user held no key to point. The element ${hover ? 'under the mouse' : 'in the middle of the screen'}: ${bare(target)})`}\n\nSpeech:\n${cmd}`
       if (t.versions) return versions(cmd, user, Object.fromEntries(paths.map((p, i) => [p, texts[i]])), ac, el)
-      return ask(user + more, ac.signal, name => el.update({ title: name }), shots(pointed?.zone, pointed?.marks))
+      return ask(user + more, ac.signal, name => el.update({ title: name }), shots(pointed?.zone))
     }
     if (t.versions) return await ask1('')
     let reply, blocks, byFile
