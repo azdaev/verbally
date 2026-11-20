@@ -90,7 +90,7 @@ All keys are optional. Set them as environment variables before you start `verba
 | `VERBALLY_HOME` | Where Verbally keeps its files. Default `~/.verbally`. |
 | `BROWSER=none` | Do not open the browser at start. |
 
-Settings in the address of the page: `?model=claude-sonnet-5-5` (default `claude-opus-5-5`), `?effort=medium` (default `low`), `?terms=Word,Word` (names that the speech recognizer must know).
+Settings in the address of the page: `?model=claude-sonnet-5-5` (default `claude-opus-5-5`; with Codex, a Codex model ID), `?effort=medium` (default `low`), `?terms=Word,Word` (names that the speech recognizer must know).
 
 To give Claude Code your own MCP servers, put them in `~/.verbally/engine-mcp.json`, in the format of Claude Code's `--mcp-config`.
 
@@ -160,7 +160,7 @@ Select **Settings → Model → Engine → Codex CLI**.
 Use a current Codex CLI and sign in with `codex login`.
 Verbally uses that saved login. It does not request a separate API key.
 
-The engine choice works in page mode and code mode.
+The engine choice works in page mode and code mode. OpenRouter works only in page mode; code mode falls back to Claude Code.
 Each engine keeps its own model choice.
 Leave the Codex model field empty to use the CLI default, or enter a model ID.
 
@@ -178,8 +178,8 @@ The completed reply appears at once; Codex token streaming is not part of this a
 Verbally applies edits and keeps preview, cancellation, and undo under its own control.
 Screenshots become temporary image files. Verbally removes them when the request ends.
 
-The adapter ignores user configuration, plugins, and MCP servers for predictable requests.
-It keeps the saved CLI login. The model field and `?effort=` control each request.
+The adapter ignores `~/.codex/config.toml` (plugins, MCP servers, providers, profiles, effort) for predictable requests.
+It keeps the saved CLI login and the top-level `model` of that file: an empty model field uses it. The model field and `?effort=` control each request.
 The two engines share the `VERBALLY_WORKERS` limit.
 
 The protocol follows the [Codex non-interactive documentation](https://learn.chatgpt.com/docs/non-interactive-mode).

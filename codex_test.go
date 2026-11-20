@@ -51,7 +51,7 @@ func TestChooseEngine(t *testing.T) {
 func TestCodexArgsKeepWritesInVerbally(t *testing.T) {
 	args := codexArgs(chatRequest{Model: "test-model", Effort: "low"}, "/tmp/reply", []string{"/tmp/shot.jpg"})
 	joined := strings.Join(args, " ")
-	for _, need := range []string{"--sandbox read-only", `approval_policy="never"`, "--ignore-user-config", "--model test-model", "--image /tmp/shot.jpg", "--output-last-message /tmp/reply"} {
+	for _, need := range []string{"--sandbox read-only", `approval_policy="never"`, "--ignore-user-config", "--model test-model", "--image=/tmp/shot.jpg", "--output-last-message /tmp/reply"} {
 		if !strings.Contains(joined, need) {
 			t.Errorf("codexArgs(test-model, low, shot) = %q, want %q", joined, need)
 		}
@@ -74,6 +74,7 @@ func fakeCodex(t *testing.T, mode string) (string, string) {
 		t.Fatal(err)
 	}
 	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	t.Setenv("CODEX_HOME", dir) // not the config.toml of the machine
 	t.Setenv("VERBALLY_HELPER", mode)
 	t.Setenv("VERBALLY_TEST_CAPTURE", capture)
 	old := engineDir
@@ -208,14 +209,34 @@ func TestCodexWarmupDoesNotLaunchCLI(t *testing.T) {
 	}
 }
 
-func TestCodexEventsRejectFailureAndBrokenStreams(t *testing.T) {
-	for _, input := range []string{`{"type":"turn.failed","error":{"message":"quota"}}`, `{"type":"error","message":"login required"}`, "not json", strings.Repeat("x", (4<<20)+1)} {
+func TestCodexEventsReportFailuresAndSkipOddLines(t *testing.T) {
+	long := `{"type":"item.completed","item":{"aggregated_output":"` + strings.Repeat("x", (4<<20)+1) + `"}}` + "\n"
+	for _, input := range []string{`{"type":"turn.failed","error":{"message":"quota"}}`, `{"type":"error","message":"login required"}`,
+		"not json\n" + long + `{"type":"turn.failed","error":{"message":"quota"}}`} {
 		if err := codexEvents(strings.NewReader(input)); err == nil {
 			t.Errorf("codexEvents(%q...) = nil, want error", input[:min(20, len(input))])
 		}
 	}
-	if err := codexEvents(strings.NewReader("{\"type\":\"error\",\"message\":\"retrying\"}\n{\"type\":\"turn.completed\"}\n")); err != nil {
-		t.Errorf("codexEvents(completed) = %v, want nil", err)
+	for _, input := range []string{"{\"type\":\"error\",\"message\":\"retrying\"}\n{\"type\":\"turn.completed\"}\n", "not json\n" + long + `{"type":"turn.completed"}`} {
+		if err := codexEvents(strings.NewReader(input)); err != nil {
+			t.Errorf("codexEvents(%q...) = %v, want nil", input[:min(20, len(input))], err)
+		}
+	}
+}
+
+func TestCodexDefaultModelComesFromConfig(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("CODEX_HOME", dir)
+	os.WriteFile(filepath.Join(dir, "config.toml"), []byte("model_reasoning_effort = \"xhigh\"\nmodel = \"gpt-test\" # mine\n[profiles.fast]\nmodel = \"other\"\n"), 0600)
+	if got := strings.Join(codexArgs(chatRequest{}, "/tmp/reply", nil), " "); !strings.Contains(got, "--model gpt-test ") {
+		t.Errorf("codexArgs(no model) = %q, want --model gpt-test from config.toml", got)
+	}
+	if got := strings.Join(codexArgs(chatRequest{Model: "chosen"}, "/tmp/reply", nil), " "); !strings.Contains(got, "--model chosen ") {
+		t.Errorf("codexArgs(chosen) = %q, want the chosen model", got)
+	}
+	os.WriteFile(filepath.Join(dir, "config.toml"), []byte("[profiles.fast]\nmodel = \"other\"\n"), 0600)
+	if got := strings.Join(codexArgs(chatRequest{}, "/tmp/reply", nil), " "); strings.Contains(got, "--model") {
+		t.Errorf("codexArgs(model only in a table) = %q, want no --model", got)
 	}
 }
 

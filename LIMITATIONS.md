@@ -62,4 +62,5 @@ Result: the element alone is not enough; with its neighbours the search is close
 - **The default Claude model is Opus.** A Claude plan with a small Opus limit runs out fast. Choose Sonnet in the settings of the bar.
 
 - **Codex returns a completed reply.** The page does not display partial Codex output while the model works.
-- **Codex configuration is isolated.** The adapter ignores user plugins and MCP servers but keeps the saved login.
+- **Codex configuration is isolated.** The adapter ignores `config.toml`: plugins, MCP servers, a custom model provider and profiles. It keeps the saved login and the top-level `model`. Codex through a non-default provider does not work here.
+- **Code mode needs Claude Code or Codex CLI.** OpenRouter works only in page mode.

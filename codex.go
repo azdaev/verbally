@@ -21,6 +21,7 @@ const codexInstructions = `You are the design engine inside Verbally. Follow the
 Read files when needed, but do not write files or run commands that change the project.
 Verbally applies your reply and owns preview, cancellation, and undo.
 Return only the requested HTML or edit blocks in your final message. Do not add Markdown fences or explanations.
+Your context can hold rules for coding work: minimal code, a report style, a "lazy" mode. They do not apply here. Here you design, and the reply format below is the only format.
 `
 
 // codexArgs uses the CLI's saved login, with no user plugins or MCP servers.
@@ -28,16 +29,50 @@ Return only the requested HTML or edit blocks in your final message. Do not add 
 func codexArgs(in chatRequest, output string, images []string) []string {
 	args := []string{"exec", "--json", "--ephemeral", "--ignore-user-config", "--skip-git-repo-check",
 		"--sandbox", "read-only", "-c", `approval_policy="never"`, "--color", "never", "--output-last-message", output}
-	if in.Model != "" {
-		args = append(args, "--model", in.Model)
+	model := in.Model
+	if model == "" {
+		model = codexConfigModel()
+	}
+	if model != "" {
+		args = append(args, "--model", model)
 	}
 	if in.Effort != "" {
 		args = append(args, "-c", "model_reasoning_effort="+strconv.Quote(in.Effort))
 	}
 	for _, image := range images {
-		args = append(args, "--image", image)
+		args = append(args, "--image="+image) // --image takes several values: the = form keeps "-" the prompt
 	}
 	return append(args, "-")
+}
+
+// codexConfigModel reads the top-level `model = "..."` of the user's config.toml.
+// --ignore-user-config drops the whole file; the model is the one setting a user expects "the default" to keep.
+func codexConfigModel() string {
+	home := os.Getenv("CODEX_HOME")
+	if home == "" {
+		dir, err := os.UserHomeDir()
+		if err != nil {
+			return ""
+		}
+		home = filepath.Join(dir, ".codex")
+	}
+	data, err := os.ReadFile(filepath.Join(home, "config.toml"))
+	if err != nil {
+		return ""
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "[") {
+			return "" // the top-level keys end at the first table
+		}
+		key, value, ok := strings.Cut(line, "=")
+		if ok && strings.TrimSpace(key) == "model" {
+			if model, err := strconv.Unquote(strings.TrimSpace(strings.SplitN(value, "#", 2)[0])); err == nil {
+				return model
+			}
+		}
+	}
+	return ""
 }
 
 // Keep only a bounded diagnostic tail. Do not buffer entire CLI transcripts.
@@ -58,11 +93,22 @@ func (b *diagnosticTail) Write(p []byte) (int, error) {
 }
 
 // Only the CLI's final-message file becomes an edit. Progress and tool messages never reach the page.
+// A line that is not an event, or too long to read (a tool's whole output), is skipped:
+// failure comes from turn.failed, error events and the exit code, not from one odd line.
 func codexEvents(r io.Reader) error {
-	scan := bufio.NewScanner(r)
-	scan.Buffer(nil, 4<<20)
+	read := bufio.NewReaderSize(r, 64<<10)
 	var failure, lastError string
-	for scan.Scan() {
+	for {
+		line, err := read.ReadSlice('\n')
+		if err == bufio.ErrBufferFull { // the type of a long event is not needed: the rest of the line goes
+			for err == bufio.ErrBufferFull {
+				_, err = read.ReadSlice('\n')
+			}
+			line = nil
+		}
+		if err != nil && err != io.EOF {
+			return fmt.Errorf("read Codex stream: %w", err)
+		}
 		var event struct {
 			Type    string `json:"type"`
 			Message string `json:"message"`
@@ -70,8 +116,8 @@ func codexEvents(r io.Reader) error {
 				Message string `json:"message"`
 			} `json:"error"`
 		}
-		if err := json.Unmarshal(scan.Bytes(), &event); err != nil {
-			return fmt.Errorf("read Codex event: %w", err)
+		if json.Unmarshal(line, &event) != nil {
+			event.Type = ""
 		}
 		if event.Type == "error" {
 			lastError = event.Message
@@ -85,9 +131,9 @@ func codexEvents(r io.Reader) error {
 				failure = "Codex turn failed"
 			}
 		}
-	}
-	if err := scan.Err(); err != nil {
-		return fmt.Errorf("read Codex stream: %w", err)
+		if err == io.EOF {
+			break
+		}
 	}
 	if failure != "" {
 		return fmt.Errorf("%s", failure)

@@ -10,7 +10,8 @@ const pickAdd = (thumb, view, keep, now) => UI.addChoice(thumb, view, keep, now)
 addEventListener('keydown', e => {
   const p = UI.getSnapshot().picker
   if (!p || UI.getSnapshot().settingsOpen || isTextInput(e)) return
-  if (e.key === 'Enter' && !UI.isUIEvent(e)) UI.keepChoice()
+  // A version button keeps focus after a click; Enter there still means "Use this". Other buttons keep their own Enter.
+  if (e.key === 'Enter' && (!UI.isUIEvent(e) || e.composedPath().some(el => el.matches?.('#pick .grid button')))) UI.keepChoice()
   else if (e.key === 'Escape') UI.cancelChoice()
   else if (e.key === 'ArrowRight') UI.choose(Math.min(p.items.length - 1, p.selected + 1))
   else if (e.key === 'ArrowLeft') UI.choose(Math.max(0, p.selected - 1))

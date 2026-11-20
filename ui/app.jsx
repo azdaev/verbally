@@ -26,8 +26,9 @@ ui.isUIEvent = e => e.composedPath().includes(host)
 window.VerballyUI = ui
 const useUI = () => useSyncExternalStore(ui.subscribe, ui.getSnapshot)
 
-function IconButton({ label, icon: Icon, ...props }) {
-  return <Button variant="ghost" size="icon" aria-label={label} title={label} {...props}><Icon aria-hidden="true" /></Button>
+// tip: the bar's own tooltip (data-tip in styles.css). Buttons outside the bar keep the native title.
+function IconButton({ label, tip, icon: Icon, ...props }) {
+  return <Button variant="ghost" size="icon" aria-label={label} {...(tip ? { 'data-tip': tip } : { title: label })} {...props}><Icon aria-hidden="true" /></Button>
 }
 function Toolbar() {
   const s = useUI(), heard = useRef(null), [width, setWidth] = useState(0)
@@ -38,17 +39,17 @@ function Toolbar() {
     return () => observer.disconnect()
   }, [])
   return <div id="bar" role="toolbar" aria-label="Verbally" className={[s.busy && 'busy', s.recording && 'rec', s.hears && 'hears', s.waiting && 'wait'].filter(Boolean).join(' ')}>
-    <IconButton id="mic" label="Microphone" icon={Mic} className={s.mic ? 'on' : ''} aria-pressed={s.mic} onClick={() => ui.actions.mic?.()} />
+    <IconButton id="mic" label="Microphone" tip={s.settings.dictation ? "Verbally's own microphone · click" : 'Talk · hold ⌥ Option or Space'} icon={Mic} className={s.mic ? 'on' : ''} aria-pressed={s.mic} onClick={() => ui.actions.mic?.()} />
     <span id="wave" aria-hidden="true">{[0,1,2,3,4].map(i => <i key={i} />)}</span>
     <div id="say" className={width > 420 ? 'over' : ''} style={{ width: s.live ? width : 0 }}><div id="heard" ref={heard} aria-live="polite"><span id="live">{s.live}</span></div></div>
     <span id="pt" title="The model sees this element">{s.pointer}</span>
     <div id="tools" className={s.tools ? 'open' : ''}>
       <span className="sep" />
-      <IconButton id="back" label="Undo · ⌘Z" icon={Undo2} disabled={!s.canUndo} onClick={() => ui.actions.undo?.()} />
-      <IconButton id="fwd" label="Redo · ⇧⌘Z" icon={Redo2} disabled={!s.canRedo} onClick={() => ui.actions.redo?.()} />
-      {!s.code && <IconButton id="clear" label="Clear the page" icon={Trash2} disabled={!s.canClear} onClick={() => ui.actions.clear?.()} />}
+      <IconButton id="back" label="Undo" tip={s.code ? 'Undo the last code change · ⌘Z' : 'Undo · ⌘Z'} icon={Undo2} disabled={!s.canUndo} onClick={() => ui.actions.undo?.()} />
+      <IconButton id="fwd" label="Redo" tip="Redo · ⇧⌘Z" icon={Redo2} disabled={!s.canRedo} onClick={() => ui.actions.redo?.()} />
+      {!s.code && <IconButton id="clear" label="Clear the page" tip="Clear the page" icon={Trash2} disabled={!s.canClear} onClick={() => ui.actions.clear?.()} />}
     </div>
-    <IconButton id="more" label="Settings" icon={Settings} onClick={() => ui.update({ settingsOpen: true })} />
+    <IconButton id="more" label="Settings" tip="Settings" icon={Settings} onClick={() => ui.update({ settingsOpen: true })} />
   </div>
 }
 function Tasks() {
