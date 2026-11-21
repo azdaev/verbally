@@ -11,7 +11,7 @@ const server = http.createServer(async (req, res) => {
   const send = (text, type = 'text/plain', status = 200) => { res.writeHead(status, { 'Content-Type': type + '; charset=utf-8', 'Cache-Control': 'no-store' }); res.end(text) }
   try {
     if (path === '/reset') { source = 'export const title = "Original"'; undo = []; redo = []; preview = null; return send('ok') }
-    if (path === '/api/setup') return send(JSON.stringify({ version: 'fixture', engine: 'codex', speech: 'dictation', app: 'Fixture', key: 'right ⌥', code: 'AltRight', others: 'Handy' }), 'application/json')
+    if (path === '/api/setup') return send(JSON.stringify({ version: 'fixture', engine: 'codex', speech: 'dictation', app: 'Fixture', key: 'right ⌥', code: 'AltRight', others: 'Handy', claude: 'installed', codex: 'installed', codexModel: 'gpt-6.2-sol' }), 'application/json')
     if (path === '/api/log' || path === '/api/page') { await body(req); return send('ok') }
     if (path === '/api/root') return send('/fixture')
     if (path === '/api/release') { if (preview !== null) { source = preview; preview = null }; return send('') }

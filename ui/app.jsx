@@ -52,12 +52,21 @@ function Toolbar() {
     <IconButton id="more" label="Settings" tip="Settings" icon={Settings} onClick={() => ui.update({ settingsOpen: true })} />
   </div>
 }
+const rawError = text => /Codex/.test(text) ? 'Codex could not make the change'
+  : /claude/i.test(text) ? 'Claude Code could not make the change'
+  : /^\d{3}\b|fetch|network/i.test(text) ? 'The engine did not answer' : ''
 function Tasks() {
   const { tasks } = useUI()
-  return <div id="tasks" aria-live="polite">{tasks.map(t => <div key={t.id} className={`ph ${t.kind} ${t.look ? 'look' : ''} ${t.out ? 'out' : ''}`}>
-    <b>{t.title}</b><small>{t.text}</small>
-    {!['err','done','skip'].includes(t.kind) && <IconButton className="x" label={`Cancel ${t.text}`} icon={X} onClick={() => ui.actions.cancel?.(t.handle)} />}
-  </div>)}</div>
+  // Until the model names the task, the spoken phrase is the title and the card says that it works.
+  // A raw engine error gets a plain title; its details stay in the second line.
+  return <div id="tasks" aria-live="polite">{tasks.map(t => {
+    const pending = !['err', 'done', 'skip', 'hint'].includes(t.kind)
+    const title = t.title || (t.kind === 'err' && rawError(t.text)) || ''
+    return <div key={t.id} className={`ph ${t.kind} ${pending ? 'wip' : ''} ${t.look ? 'look' : ''} ${t.out ? 'out' : ''}`}>
+      <b>{title || t.text}</b>{title ? <small>{t.text}</small> : pending && <small>Working…</small>}
+      {pending && <IconButton className="x" label={`Cancel ${t.text}`} icon={X} onClick={() => ui.actions.cancel?.(t.handle)} />}
+    </div>
+  })}</div>
 }
 // Engine thumbnails are copied into a sandboxed frame. Their CSS cannot reach the controls.
 function Preview({ node }) {
@@ -71,16 +80,39 @@ function Preview({ node }) {
     html.querySelectorAll('script').forEach(script => script.remove())
     html.querySelectorAll('*').forEach(el => [...el.attributes].forEach(attr => { if (attr.name.startsWith('on')) el.removeAttribute(attr.name) }))
     const tailwind = html.createElement('script'); tailwind.src = 'https://cdn.tailwindcss.com'; html.head.append(tailwind)
+    // The frame tells its content height, so a short section sits in the middle of the thumbnail instead of a strip at the top.
+    const size = html.createElement('script')
+    size.textContent = 'new ResizeObserver(() => parent.postMessage({ vbThumb: document.body.scrollHeight }, "*")).observe(document.body)'
+    html.body.append(size)
     return '<!doctype html>' + html.documentElement.outerHTML
   })
-  if (preview) return <span className="thumb"><iframe title="Layout preview" tabIndex={-1} sandbox="allow-scripts" srcDoc={preview} /></span>
+  const frame = useRef(null), [height, setHeight] = useState(0)
+  useLayoutEffect(() => {
+    const listen = e => { if (e.source === frame.current?.contentWindow && e.data?.vbThumb) setHeight(e.data.vbThumb) }
+    addEventListener('message', listen)
+    return () => removeEventListener('message', listen)
+  }, [])
+  const scale = .1375 // 1280 px of page in a 176 px thumbnail
+  const top = height ? Math.max(0, (110 - height * scale) / 2) : 0
+  if (preview) return <span className="thumb"><iframe ref={frame} title="Layout preview" tabIndex={-1} sandbox="allow-scripts" srcDoc={preview}
+    style={{ transform: `translateY(${top}px) scale(${scale})` }} /></span>
   if (node.tagName === 'IMG') return <img src={node.src} alt="" />
   return <span className="label">{node.textContent}</span>
 }
 function Picker() {
-  const { picker: p } = useUI()
-  if (!p) return null
-  return <div id="pick" className={p.wide ? 'wide' : ''} role="region" aria-label="Versions">
+  const { picker } = useUI()
+  return picker ? <PickerPanel p={picker} /> : null
+}
+// The picker sits above the bar, and the task cards above the picker: --vb-pick-h lifts them by its height.
+function PickerPanel({ p }) {
+  const panel = useRef(null)
+  useLayoutEffect(() => {
+    const el = panel.current, lift = () => host.style.setProperty('--vb-pick-h', el.offsetHeight + 8 + 'px')
+    const observer = new ResizeObserver(lift)
+    observer.observe(el); lift()
+    return () => { observer.disconnect(); host.style.setProperty('--vb-pick-h', '0px') }
+  }, [])
+  return <div id="pick" ref={panel} className={p.wide ? 'wide' : ''} role="region" aria-label="Versions">
     <header><b id="pickTitle" aria-live="polite">{p.title}</b><span>
       <Button id="pickKeep" variant="ghost" onClick={ui.cancelChoice}>Cancel</Button>
       <Button id="pickUse" disabled={!p.chosen} onClick={ui.keepChoice}><Check />Use this</Button>
@@ -88,6 +120,7 @@ function Picker() {
     <div className="grid">{p.items.map((item, i) => <button key={i} type="button" aria-label={`Version ${i + 1}`} aria-pressed={p.selected === i} className={p.selected === i ? 'now' : ''} onClick={() => ui.choose(i)}>
       <Preview node={item.thumb} /><i>{i + 1}</i>
     </button>)}</div>
+    <footer><Key>←</Key><Key>→</Key> compare <Key>Enter</Key> use <Key>Esc</Key> cancel</footer>
   </div>
 }
 const languages = { 'en-US': 'English', 'ru-RU': 'Русский', 'es-ES': 'Español', 'de-DE': 'Deutsch', 'fr-FR': 'Français', 'pt-BR': 'Português', 'zh-CN': '中文', 'ja-JP': '日本語' }
@@ -97,7 +130,7 @@ function Choice({ value, title, detail, disabled, tag }) {
   const id = React.useId()
   return <label className={`item opt ${disabled ? 'off' : ''}`} htmlFor={id}>
     <RadioGroupItem id={id} value={value} disabled={disabled} />
-    <span><b>{title}</b>{detail && <small>{detail}</small>}</span>{tag && <i className={disabled ? '' : 'run'}>{tag}</i>}
+    <span><b>{title}</b>{detail && <small>{detail}</small>}</span>{tag && <i className={tag === 'Running' ? 'run' : ''}>{tag}</i>}
   </label>
 }
 function SettingsWindow() {
@@ -126,19 +159,19 @@ function SettingsWindow() {
             <Choice value="mic" title="Verbally's microphone" detail="Built in. Needs no other app." />
             {(d.others || '').split(', ').filter(Boolean).map(name => <Choice key={name} value={name} title={name} tag="Not running" disabled />)}
           </RadioGroup><p className="note">Start a dictation app, then reload the page to choose it.</p></div>
-          {s.dictation ? <div className="group"><h4>{d.app || 'Your dictation app'}</h4><div className="list">
-            <div className="item"><span>Talk</span><span><TalkKey settings={s} /></span></div>
-            <div className="item"><span>Point at a thing<small>Hold ⌥ and move the mouse while you talk.</small></span></div>
-          </div><p className="note">The app hears you and pastes the text. Verbally uses the text as the phrase.</p></div> : <div className="group"><h4>Verbally's microphone</h4><div className="list">
+          {/* The keys live on the Keys tab only; here is what each listener needs. */}
+          {s.dictation ? <div className="group"><h4>{d.app || 'Your dictation app'}</h4>
+            <p className="note">The app hears you and pastes the text. Verbally uses the text as the phrase. {d.key ? <>To talk, hold <Key>{d.key}</Key>.</> : 'To talk, use its own key.'}</p></div>
+          : <div className="group"><h4>Verbally's microphone</h4><div className="list">
             <div className="item"><span>Recognizer<small>{d.recognizer === 'Soniox' ? 'Uses your Soniox connection.' : 'The audio goes to Google.'}</small></span><span>{d.recognizer === 'Soniox' ? 'Soniox' : 'Chrome'}</span></div>
             {d.recognizer !== 'Soniox' && <label className="item"><span>Language you speak</span><select aria-label="Language you speak" value={s.lang} onChange={e => change('lang', e.target.value)}>{Object.entries({ ...languages, ...(!languages[s.lang] ? { [s.lang]: s.lang } : {}) }).map(([v, name]) => <option key={v} value={v}>{name}</option>)}</select></label>}
-            <div className="item"><span>Talk</span><span><Key>⌥</Key> or <Key>Space</Key></span></div>
           </div></div>}
         </TabsContent>
         <TabsContent value="model"><h3>Model</h3><div className="group"><h4>Engine</h4>
           <RadioGroup className="list" aria-label="Engine" value={s.engine} onValueChange={v => change('engine', v)}>
-            <Choice value="claude" title="Claude Code" detail="Uses your Claude Code login." />
-            <Choice value="codex" title="Codex CLI" detail="Uses your Codex CLI login." />
+            {/* d.version: the server answered; before that nothing is known about the CLIs. */}
+            <Choice value="claude" title="Claude Code" detail="Uses your Claude Code login." disabled={d.version && !d.claude && s.engine !== 'claude'} tag={d.version && !d.claude ? 'Not installed' : ''} />
+            <Choice value="codex" title="Codex CLI" detail="Uses your Codex CLI login." disabled={d.version && !d.codex && s.engine !== 'codex'} tag={d.version && !d.codex ? 'Not installed' : ''} />
           </RadioGroup></div>
           <div className="group"><h4>Writes the changes</h4>
           {s.engine === 'claude' ? <>
@@ -147,8 +180,8 @@ function SettingsWindow() {
               <Choice value="claude-sonnet-5-5" title="Sonnet" detail="Faster, and lighter on your Claude plan." />
             </RadioGroup><p className="note">Uses Claude Code on your machine, with your subscription.</p>
           </> : <>
-            <label className="item list"><span>Model<small>Leave empty to use the default.</small></span>
-              <input className="model-name" aria-label="Model name" placeholder={s.engine === 'codex' ? 'Codex default' : 'Model ID'} value={s.model} onChange={e => change('model', e.target.value)} />
+            <label className="item list"><span>Model<small>{s.engine === 'codex' ? (d.codexModel ? `Empty: ${d.codexModel}, from your Codex config.` : 'Empty: the Codex default.') : 'A model ID of OpenRouter.'}</small></span>
+              <input className="model-name" aria-label="Model name" placeholder={s.engine === 'codex' ? d.codexModel || 'Codex default' : 'Model ID'} value={s.model} onChange={e => change('model', e.target.value)} />
             </label><p className="note">{s.engine === 'codex' ? 'Codex reads the project. Verbally applies each change and keeps undo available.' : 'Uses your OpenRouter connection.'}</p>
           </>}
           </div></TabsContent>

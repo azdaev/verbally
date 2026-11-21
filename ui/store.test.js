@@ -29,6 +29,15 @@ test('picker keeps the selected version and ignores late choices after close', (
   ui.closePicker(); ui.addChoice(null, () => {}, () => {})
   assert.equal(ui.getSnapshot().picker, null)
 })
+test('the first ready version shows at once and can be kept', () => {
+  const ui = createUIStore(), calls = []
+  ui.openPicker('Versions', true, () => calls.push('cancel'))
+  ui.addChoice(null, () => calls.push('view1'), () => calls.push('keep1'))
+  ui.addChoice(null, () => calls.push('view2'), () => calls.push('keep2'))
+  assert.deepEqual(calls, ['view1']) // the second one waits for a choice
+  ui.keepChoice()
+  assert.deepEqual(calls, ['view1', 'keep1'])
+})
 test('clearing a page removes tasks but keeps errors and independent controls', () => {
   const ui = createUIStore()
   ui.task('Waiting'); ui.task('Connection failed', 'err')

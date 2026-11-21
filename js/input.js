@@ -149,10 +149,13 @@ setupReady.then(d => {
   // Who wins: ?speech= in the address, then the user's choice in the settings, then what the server found.
   dictation = (q.get('speech') || (d.app && localStorage.getItem('verbally.speech')) || d.speech) === 'dictation'
   showSettings()
-  if (!dictation || !once('verbally.told')) return
-  const c = chip(d.key ? `Hold ${d.key}, point and talk` : 'Use its key, point with the mouse and talk', 'done')
-  c.update({ title: 'Speech: ' + (d.app || 'your dictation app') })
-  leave(c, 7000)
+  // Once per browser: a new user sees five icons and must learn the one gesture that matters.
+  if (localStorage.getItem('verbally.told')) return
+  localStorage.setItem('verbally.told', 1)
+  const c = dictation ? chip(d.key ? `Hold ${d.key}, point and talk` : 'Use its key, point with the mouse and talk', 'hint')
+    : chip('Hold ⌥ or Space and talk. Move the mouse while you hold ⌥ to point at a thing.', 'hint')
+  c.update({ title: dictation ? 'Speech: ' + (d.app || 'your dictation app') : 'Talk to change the page' })
+  leave(c, 9000)
 }).catch(() => {})
 addEventListener('paste', e => {
   if (!dictation || settingsOpen() || UI.isUIEvent(e)) return

@@ -109,6 +109,7 @@ func setup(w http.ResponseWriter, r *http.Request) {
 			out[name] = "installed"
 		}
 	}
+	out["codexModel"] = codexConfigModel() // what an empty model field means with Codex
 	out["recognizer"] = "Chrome" // of Verbally's own microphone
 	if os.Getenv("SONIOX_API_KEY") != "" {
 		out["recognizer"] = "Soniox"

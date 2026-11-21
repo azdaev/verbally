@@ -23,14 +23,17 @@ export function createUIStore(code = false) {
   }
   return { getSnapshot: () => state, subscribe: fn => { listeners.add(fn); return () => listeners.delete(fn) },
     update, actions, task, choose,
-    clearTasks() { update({ tasks: state.tasks.filter(t => t.kind === 'err') }) },
+    clearTasks() { update({ tasks: state.tasks.filter(t => t.kind === 'err' || t.kind === 'hint') }) },
     openPicker(title, wide, cancel) { update({ picker: { title, wide, cancel, items: [], selected: -1, chosen: false } }) },
     closePicker() { update({ picker: null }) },
     pickerTitle(title) { if (state.picker) update({ picker: { ...state.picker, title } }) },
     addChoice(thumb, view, keep, now) {
       const p = state.picker
       if (!p) return
-      update({ picker: { ...p, selected: now ? p.items.length : p.selected, items: [...p.items, { thumb, view, keep }] } })
+      const index = p.items.length
+      update({ picker: { ...p, selected: now ? index : p.selected, items: [...p.items, { thumb, view, keep }] } })
+      // Nothing shown yet: the first ready version shows at once, so "Use this" works without a click.
+      if (!now && p.selected < 0) choose(index)
     },
     keepChoice() { const p = state.picker; if (p?.chosen) p.items[p.selected]?.keep() },
     cancelChoice() { state.picker?.cancel() }
