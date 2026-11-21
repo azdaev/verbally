@@ -12,7 +12,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400&family=Inter:wght@400;500;600&family=Onest:wght@700&display=swap" rel="stylesheet">
 <style>
-:root { --ink:#0A0A0A; --text-2:#5C5C5C; --text-3:#737373; --text-4:#8F8F8F; --line:#EDEDED; --soft:#FAFAFA; }
+:root { --ease: cubic-bezier(.22, 1, .36, 1); --ink:#0A0A0A; --text-2:#5C5C5C; --text-3:#737373; --text-4:#8F8F8F; --line:#EDEDED; --soft:#FAFAFA; }
 * { box-sizing: border-box; }
 body { margin: 0; background: #fff; color: var(--ink); font: 400 16px/1.5 'Geist', ui-sans-serif, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
 a { color: inherit; text-decoration: none; }
@@ -38,7 +38,7 @@ h1 { margin: 0; font-weight: 600; font-size: 44px; line-height: 50px; letter-spa
 
 /* Demo */
 .demo-box { display: flex; justify-content: center; padding: 0 24px; }
-.demo-scale { width: 1120px; flex-shrink: 0; }
+.demo-scale { width: 1248px; padding: 0 64px; flex-shrink: 0; }
 .window { position: relative; width: 1120px; border: 1px solid rgba(0,0,0,.16); border-radius: 12px; box-shadow: 0 0 0 .5px rgba(0,0,0,.06), 0 2px 4px rgba(0,0,0,.04), 0 32px 80px -24px rgba(0,0,0,.28); background: #F4F4F5; }
 .window > .chrome { display: block; width: 100%; height: 87px; border-radius: 11px 11px 0 0; }
 .page { position: relative; height: 540px; display: flex; justify-content: center; padding-top: 64px; border-radius: 0 0 11px 11px; }
@@ -50,10 +50,47 @@ h1 { margin: 0; font-weight: 600; font-size: 44px; line-height: 50px; letter-spa
 .box { width: 20px; height: 20px; border-radius: 6px; border: 1.5px solid #D4D4D8; flex-shrink: 0; }
 .row.done { color: #A1A1AA; text-decoration: line-through; }
 .row.done .box { border: 0; background: #18181B url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'><path d='M20 6 9 17l-5-5'/></svg>") center/12px no-repeat; }
-.add { margin-top: 8px; padding: 14px 12px; border-radius: 10px; background: #18181B; color: #fff; font-weight: 500; font-size: 16px; text-align: center; box-shadow: 0 0 0 2px rgba(255,255,255,.95), 0 0 0 4px rgba(99,102,241,.85); }
-.cursor { position: absolute; left: 690px; top: 350px; filter: drop-shadow(0 1px 1.5px rgba(0,0,0,.3)); }
-.bar-done { position: absolute; right: 5px; bottom: 5px; width: 340px; height: 140px; }
-.diff { position: absolute; left: -64px; top: 314px; width: 380px; border-radius: 12px; background: #fff; overflow: hidden; box-shadow: 0 0 0 1px rgba(0,0,0,.08), 0 2px 4px rgba(0,0,0,.04), 0 24px 48px -16px rgba(0,0,0,.22); font: 12px/22px 'Geist Mono', monospace; }
+/* The demo plays as a loop: point, talk, the model works, the edit lands. JS adds the classes on .window. */
+.add { display: flex; align-items: center; margin-top: 8px; height: 46px; padding: 0 12px; border-radius: 10px; border: 1px dashed #E4E4E7; color: #A1A1AA; font-size: 15px; transition: background .5s var(--ease), color .5s var(--ease), border-color .5s, box-shadow .25s var(--ease); }
+.point .add { box-shadow: 0 0 0 2px rgba(255,255,255,.95), 0 0 0 4px rgba(99,102,241,.85); }
+.done .add { justify-content: center; background: #18181B; border-color: #18181B; color: #fff; font-weight: 500; font-size: 16px; height: 50px; }
+.cursor { position: absolute; left: 700px; top: 350px; filter: drop-shadow(0 1px 1.5px rgba(0,0,0,.3)); opacity: 0; translate: 260px 140px; transition: translate 1.1s var(--ease), opacity .3s; }
+.point .cursor { opacity: 1; translate: 0 0; }
+.done .cursor { translate: 0 6px; }
+.out .cursor { opacity: 0; translate: 260px 140px; }
+
+/* The Verbally bar, drawn with the tokens of ui/styles.css. */
+.vb { position: absolute; right: 22px; bottom: 22px; display: flex; align-items: center; height: 52px; padding: 6px; border-radius: 26px; background: rgba(255,255,255,.92); box-shadow: 0 0 0 .5px rgba(0,0,0,.1), 0 1px 0 #fff inset, 0 12px 32px -8px rgba(0,0,0,.28), 0 2px 6px rgba(0,0,0,.06); color: #71717A; font: 500 14px/1 'Inter', sans-serif; }
+.vb svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.vb .b { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; flex: none; }
+.vb .mic { background: rgba(0,0,0,.05); color: #09090B; transition: background .25s, color .25s; }
+.talk .vb .mic { background: rgba(255,59,48,.12); color: #FF3B30; }
+.vb .wave { display: flex; align-items: center; justify-content: center; gap: 2px; width: 0; opacity: 0; overflow: hidden; transition: width .45s var(--ease), opacity .25s; }
+.vb .wave i { width: 3px; height: 16px; border-radius: 99px; background: #FF3B30; scale: 1 .2; flex: none; }
+.talk .vb .wave { width: 34px; opacity: 1; }
+.talk .vb .wave i { animation: wave .7s var(--ease) infinite alternate; }
+.vb .wave i:nth-child(2) { animation-delay: -.25s; } .vb .wave i:nth-child(3) { animation-delay: -.5s; } .vb .wave i:nth-child(4) { animation-delay: -.15s; } .vb .wave i:nth-child(5) { animation-delay: -.4s; }
+@keyframes wave { from { scale: 1 .25; } to { scale: 1 1; } }
+.vb .vsay { max-width: 0; overflow: hidden; white-space: nowrap; color: #09090B; transition: max-width .45s var(--ease); display: flex; justify-content: flex-end; }
+.talk .vb .vsay { max-width: 340px; }
+.vb .vsay span { padding: 0 8px 0 12px; }
+.vb .vpt { max-width: 0; opacity: 0; overflow: hidden; white-space: nowrap; border-radius: 99px; background: rgba(99,102,241,.1); color: #6366F1; font-size: 12px; padding: 8px 0; margin: 0; transition: max-width .35s var(--ease), opacity .2s, padding .35s var(--ease), margin .35s var(--ease); }
+.point .vb .vpt { max-width: 80px; opacity: 1; padding: 8px 11px; margin: 0 4px 0 8px; }
+.busy .vb .vpt { max-width: 0; opacity: 0; padding: 8px 0; margin: 0; }
+.vb .sep { width: 1px; height: 20px; margin: 0 6px 0 8px; background: rgba(0,0,0,.08); }
+.vb .off { opacity: .25; transition: opacity .3s; }
+.done .vb .off { opacity: 1; }
+.task { position: absolute; right: 22px; bottom: 86px; width: 300px; padding: 10px 14px; border-radius: 16px; background: rgba(255,255,255,.94); box-shadow: 0 0 0 .5px rgba(0,0,0,.1), 0 12px 32px -8px rgba(0,0,0,.28), 0 2px 6px rgba(0,0,0,.06); font: 500 13px/1.3 'Inter', sans-serif; color: #09090B; opacity: 0; filter: blur(5px); translate: 0 6px; transition: opacity .35s var(--ease), filter .35s var(--ease), translate .35s var(--ease), background-color .25s, color .25s; }
+.task small { display: block; margin-top: 2px; font-size: 12px; font-weight: 500; color: #71717A; }
+.busy .task { opacity: 1; filter: none; translate: 0 0; background: linear-gradient(90deg, rgba(255,255,255,.94) 30%, rgba(228,228,236,.96) 50%, rgba(255,255,255,.94) 70%) 0 0 / 600px 100%; animation: think 1.4s linear infinite; }
+@keyframes think { from { background-position: 600px 0; } to { background-position: 0 0; } }
+.done .task { animation: none; background: rgba(236,253,243,.97); color: #15803D; }
+.task b { font-weight: 500; }
+.done .task b::before { content: "✓ "; }
+.out .task { opacity: 0; filter: blur(4px); }
+.diff { opacity: 0; translate: 0 10px; transition: opacity .45s var(--ease), translate .45s var(--ease); position: absolute; left: -64px; top: 314px; width: 380px; border-radius: 12px; background: #fff; overflow: hidden; box-shadow: 0 0 0 1px rgba(0,0,0,.08), 0 2px 4px rgba(0,0,0,.04), 0 24px 48px -16px rgba(0,0,0,.22); font: 12px/22px 'Geist Mono', monospace; }
+.done .diff { opacity: 1; translate: 0 0; }
+.out .diff { opacity: 0; }
 .diff header { display: flex; justify-content: space-between; align-items: center; height: 38px; padding: 0 14px; background: var(--soft); border-bottom: 1px solid #F0F0F0; color: #18181B; }
 .diff header span { display: flex; align-items: center; gap: 8px; }
 .diff .body { padding: 8px 0; }
@@ -136,7 +173,6 @@ footer .links { display: flex; gap: 24px; font-size: 13px; color: var(--text-2);
   h1 { font-size: 32px; line-height: 38px; }
   .hero { padding: 56px 20px 36px; }
   .apps { grid-template-columns: repeat(2, 1fr); }
-  .diff { display: none; }
 }
 </style>
 </head>
@@ -170,7 +206,17 @@ footer .links { display: flex; gap: 24px; font-size: 13px; color: var(--text-2);
         <div class="add">+ Add a task</div>
       </div>
       <svg class="cursor" width="28" height="28" viewBox="0 0 28 28"><path d="M5 3 L5 22 L10 17.5 L13.5 25 L17 23.5 L13.5 16 L20.5 16 Z" fill="#0A0A0A" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg>
-      <img class="bar-done" src="assets/bar-done.png" alt="">
+      <div class="task"><b>Solid button, a bit bigger</b><small>src/App.tsx</small></div>
+      <div class="vb">
+        <span class="b mic"><svg viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><path d="M12 18v4"/></svg></span>
+        <span class="wave"><i></i><i></i><i></i><i></i><i></i></span>
+        <span class="vsay"><span id="said"></span></span>
+        <span class="vpt">button</span>
+        <span class="sep"></span>
+        <span class="b off"><svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></span>
+        <span class="b off"><svg viewBox="0 0 24 24"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg></span>
+        <span class="b"><svg viewBox="0 0 24 24"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></span>
+      </div>
     </div>
     <div class="diff">
       <header><span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3178C6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>src/App.tsx</span><span><span class="plus">+2</span><span class="minus">−1</span></span></header>
@@ -250,8 +296,30 @@ footer .links { display: flex; gap: 24px; font-size: 13px; color: var(--text-2);
 <script>
 // The demo is drawn at 1120 px; narrower screens get it scaled down whole.
 const demo = document.getElementById('demo')
-const fit = () => { const s = Math.min(1, (innerWidth - 48) / 1184); demo.style.zoom = s }
+const fit = () => { const s = Math.min(1, innerWidth / 1248); demo.style.zoom = s }
 fit(); addEventListener('resize', fit)
+// The demo loop. ?step=point|talk|busy|done freezes one state (for screenshots).
+const win = demo.querySelector('.window'), said = document.getElementById('said')
+const phrase = 'make this a solid button, and a bit bigger'.split(' ')
+const wait = ms => new Promise(r => setTimeout(r, ms))
+const set = (...c) => { win.className = 'window ' + c.join(' ') }
+const freeze = new URLSearchParams(location.search).get('step')
+if (freeze || matchMedia('(prefers-reduced-motion: reduce)').matches) {
+  const all = ['point', 'talk', 'busy', 'done'], n = all.indexOf(freeze || 'done')
+  set(...all.slice(0, n + 1).filter(c => !(n >= 2 && c === 'talk')))
+  said.textContent = phrase.join(' ')
+} else (async () => {
+  for (;;) {
+    set(); said.textContent = ''; await wait(900)
+    set('point'); await wait(1300)
+    set('point', 'talk')
+    for (let i = 1; i <= phrase.length; i++) { said.textContent = phrase.slice(0, i).join(' '); await wait(i === 5 ? 420 : 190) }
+    await wait(600)
+    set('point', 'busy'); await wait(1800)
+    set('point', 'busy', 'done'); await wait(3600)
+    set('point', 'busy', 'done', 'out'); await wait(700)
+  }
+})()
 const copy = document.getElementById('copy'), label = copy.querySelector('span')
 copy.onclick = async () => {
   await navigator.clipboard.writeText(document.getElementById('prompt').textContent)
