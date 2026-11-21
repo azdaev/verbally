@@ -12,28 +12,39 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400&family=Inter:wght@400;500;600&family=Onest:wght@700&display=swap" rel="stylesheet">
 <style>
-:root { --ease: cubic-bezier(.22, 1, .36, 1); --ink:#0A0A0A; --text-2:#5C5C5C; --text-3:#737373; --text-4:#8F8F8F; --line:#EDEDED; --soft:#FAFAFA; }
+:root { --ease: cubic-bezier(.23, 1, .32, 1); --ease-in-out: cubic-bezier(.77, 0, .175, 1); --ink:#0A0A0A; --text-2:#5C5C5C; --text-3:#737373; --text-4:#8F8F8F; --line:#EDEDED; --soft:#FAFAFA; }
 * { box-sizing: border-box; }
 body { margin: 0; background: #fff; color: var(--ink); font: 400 16px/1.5 'Geist', ui-sans-serif, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+html { scroll-padding-top: 76px; }
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+::selection { background: rgba(99,102,241,.18); }
 a { color: inherit; text-decoration: none; }
-a:hover { color: var(--ink); }
+:is(a, button):focus-visible { outline: 2px solid rgba(99,102,241,.6); outline-offset: 2px; border-radius: 6px; }
+h1, h2 { text-wrap: balance; }
+p { text-wrap: pretty; }
 .mono { font-family: 'Geist Mono', ui-monospace, monospace; }
 .wrap { width: min(1120px, 100% - 48px); margin: 0 auto; }
 
 /* Nav */
-nav { display: flex; justify-content: space-between; align-items: center; height: 60px; padding: 0 32px; border-bottom: 1px solid #F0F0F0; }
+nav { position: sticky; top: 0; z-index: 10; display: flex; justify-content: space-between; align-items: center; height: 60px; padding: 0 32px; border-bottom: 1px solid #F0F0F0; background: rgba(255,255,255,.82); -webkit-backdrop-filter: saturate(1.8) blur(16px); backdrop-filter: saturate(1.8) blur(16px); }
 nav .left, nav .right { display: flex; align-items: center; gap: 24px; }
 .logo { font: 700 21px/1 'Onest', sans-serif; letter-spacing: -0.05em; color: var(--ink); }
 nav .links { display: flex; gap: 24px; font-size: 14px; color: var(--text-2); }
-nav .links a, nav .gh { color: var(--text-2); transition: color .15s; }
+nav .links a, nav .gh, footer .links a { color: var(--text-2); transition: color .15s ease; }
+@media (hover: hover) and (pointer: fine) { nav .links a:hover, nav .gh:hover, footer .links a:hover { color: var(--ink); } .btn:hover { opacity: .86; } }
 nav .gh { display: flex; align-items: center; gap: 6px; font-size: 14px; }
-.btn { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 14px; border-radius: 8px; background: var(--ink); color: #fff !important; font-weight: 500; font-size: 13.5px; border: 0; cursor: pointer; transition: opacity .15s, scale .15s; }
-.btn:hover { opacity: .85; }
+.btn { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 14px; border-radius: 8px; background: var(--ink); color: #fff !important; font-weight: 500; font-size: 13.5px; border: 0; cursor: pointer; transition: opacity .15s ease, scale .16s var(--ease); -webkit-tap-highlight-color: transparent; }
 .btn:active { scale: .97; }
+.btn svg { flex: none; }
 
 /* Hero */
 .hero { text-align: center; padding: 88px 24px 48px; }
 h1 { margin: 0; font-weight: 600; font-size: 44px; line-height: 50px; letter-spacing: -0.04em; }
+@media (prefers-reduced-motion: no-preference) {
+  .hero h1, .hero p, .demo-box, .install { animation: rise .6s var(--ease) both; }
+  .hero p { animation-delay: 60ms; } .demo-box { animation-delay: 140ms; } .install { animation-delay: 200ms; }
+}
+@keyframes rise { from { opacity: 0; translate: 0 8px; filter: blur(4px); } }
 .hero p { margin: 12px 0 0; font-size: 17px; line-height: 26px; color: #666; }
 
 /* Demo */
@@ -54,10 +65,10 @@ h1 { margin: 0; font-weight: 600; font-size: 44px; line-height: 50px; letter-spa
 .add { display: flex; align-items: center; margin-top: 8px; height: 46px; padding: 0 12px; border-radius: 10px; border: 1px dashed #E4E4E7; color: #A1A1AA; font-size: 15px; transition: background .5s var(--ease), color .5s var(--ease), border-color .5s, box-shadow .25s var(--ease); }
 .point .add { box-shadow: 0 0 0 2px rgba(255,255,255,.95), 0 0 0 4px rgba(99,102,241,.85); }
 .done .add { justify-content: center; background: #18181B; border-color: #18181B; color: #fff; font-weight: 500; font-size: 16px; height: 50px; }
-.cursor { position: absolute; left: 700px; top: 350px; filter: drop-shadow(0 1px 1.5px rgba(0,0,0,.3)); opacity: 0; translate: 260px 140px; transition: translate 1.1s var(--ease), opacity .3s; }
+.cursor { position: absolute; left: 700px; top: 350px; filter: drop-shadow(0 1px 1.5px rgba(0,0,0,.3)); opacity: 0; translate: 260px 140px; transition: translate 1s var(--ease-in-out), opacity .3s ease; }
 .point .cursor { opacity: 1; translate: 0 0; }
 .done .cursor { translate: 0 6px; }
-.out .cursor { opacity: 0; translate: 260px 140px; }
+.out .cursor { opacity: 0; translate: 40px 30px; transition-duration: .35s; }
 
 /* The Verbally bar, drawn with the tokens of ui/styles.css. */
 .vb { position: absolute; right: 22px; bottom: 22px; display: flex; align-items: center; height: 52px; padding: 6px; border-radius: 26px; background: rgba(255,255,255,.92); box-shadow: 0 0 0 .5px rgba(0,0,0,.1), 0 1px 0 #fff inset, 0 12px 32px -8px rgba(0,0,0,.28), 0 2px 6px rgba(0,0,0,.06); color: #71717A; font: 500 14px/1 'Inter', sans-serif; }
@@ -88,9 +99,9 @@ h1 { margin: 0; font-weight: 600; font-size: 44px; line-height: 50px; letter-spa
 .task b { font-weight: 500; }
 .done .task b::before { content: "✓ "; }
 .out .task { opacity: 0; filter: blur(4px); }
-.diff { opacity: 0; translate: 0 10px; transition: opacity .45s var(--ease), translate .45s var(--ease); position: absolute; left: -64px; top: 314px; width: 380px; border-radius: 12px; background: #fff; overflow: hidden; box-shadow: 0 0 0 1px rgba(0,0,0,.08), 0 2px 4px rgba(0,0,0,.04), 0 24px 48px -16px rgba(0,0,0,.22); font: 12px/22px 'Geist Mono', monospace; }
-.done .diff { opacity: 1; translate: 0 0; }
-.out .diff { opacity: 0; }
+.diff { opacity: 0; translate: 0 10px; scale: .98; transform-origin: right center; filter: blur(4px); transition: opacity .45s var(--ease), translate .45s var(--ease), scale .45s var(--ease), filter .45s var(--ease); position: absolute; left: -64px; top: 314px; width: 380px; border-radius: 12px; background: #fff; overflow: hidden; box-shadow: 0 0 0 1px rgba(0,0,0,.08), 0 2px 4px rgba(0,0,0,.04), 0 24px 48px -16px rgba(0,0,0,.22); font: 12px/22px 'Geist Mono', monospace; }
+.done .diff { opacity: 1; translate: 0 0; scale: 1; filter: none; transition-delay: .12s; }
+.out .diff { opacity: 0; filter: blur(4px); transition-duration: .25s; transition-delay: 0s; }
 .diff header { display: flex; justify-content: space-between; align-items: center; height: 38px; padding: 0 14px; background: var(--soft); border-bottom: 1px solid #F0F0F0; color: #18181B; }
 .diff header span { display: flex; align-items: center; gap: 8px; }
 .diff .body { padding: 8px 0; }
@@ -111,6 +122,12 @@ h1 { margin: 0; font-weight: 600; font-size: 44px; line-height: 50px; letter-spa
 .prompt { display: flex; align-items: center; gap: 16px; width: min(930px, 100%); padding: 7px 7px 7px 18px; border: 1px solid #E8E8E8; border-radius: 12px; background: var(--soft); }
 .prompt code { flex: 1; min-width: 0; font: 13px/20px 'Geist Mono', monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .prompt code span { color: #666; }
+.prompt code { user-select: all; cursor: text; }
+#copy { position: relative; min-width: 82px; justify-content: center; }
+#copy .st { display: inline-flex; align-items: center; gap: 6px; transition: opacity .2s ease, filter .2s ease, scale .2s var(--ease); }
+#copy .ok { position: absolute; inset: 0; justify-content: center; opacity: 0; filter: blur(2px); scale: .9; }
+#copy.done .ok { opacity: 1; filter: none; scale: 1; }
+#copy.done .idle { opacity: 0; filter: blur(2px); scale: .9; }
 .prompt .btn { height: 34px; padding: 0 12px; flex-shrink: 0; }
 .install .note { font-size: 14px; color: var(--text-3); text-align: center; }
 .install .req { font-size: 12px; color: var(--text-4); }
@@ -195,7 +212,7 @@ footer .links { display: flex; gap: 24px; font-size: 13px; color: var(--text-2);
 
 <div class="demo-box"><div class="demo-scale" id="demo">
   <div class="window" role="img" aria-label="A todo app in Chrome. Verbally changed the dashed Add a task button into a solid one and shows the diff of src/App.tsx.">
-    <img class="chrome" src="assets/chrome.png" alt="">
+    <img class="chrome" src="assets/chrome.png" width="1120" height="87" alt="">
     <div class="page">
       <div class="todo">
         <header><b>Today</b><span>2 of 4 done</span></header>
@@ -232,10 +249,10 @@ footer .links { display: flex; gap: 24px; font-size: 13px; color: var(--text-2);
 </div></div>
 
 <div class="install" id="install">
-  <div class="paste">Paste this into <b><img src="assets/claude.svg" alt="">Claude Code</b> or <b><img src="assets/openai.svg" alt="">Codex</b>, in your project:</div>
+  <div class="paste">Paste this into <b><img src="assets/claude.svg" width="18" height="18" alt="">Claude Code</b> or <b><img src="assets/openai.svg" width="18" height="18" alt="">Codex</b>, in your project:</div>
   <div class="prompt">
     <code id="prompt">Install Verbally here and start it: <span>https://raw.githubusercontent.com/azdaev/verbally/main/INSTALL.md</span></code>
-    <button class="btn" id="copy"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><span>Copy</span></button>
+    <button class="btn" id="copy" aria-label="Copy the install prompt"><span class="st idle"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copy</span><span class="st ok"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Copied</span></button>
   </div>
   <div class="note">It installs Verbally, starts it and opens your app with the bar in the corner.</div>
   <div class="req mono">Vite + React · Chrome · macOS &amp; Linux</div>
@@ -263,11 +280,11 @@ footer .links { display: flex; gap: 24px; font-size: 13px; color: var(--text-2);
   <section>
     <h2>Keep the app that already hears you</h2>
     <div class="apps">
-      <div class="app"><img src="assets/hex.png" alt="">Hex</div>
-      <div class="app"><img src="assets/wispr.png" alt="">Wispr Flow</div>
-      <div class="app"><img src="assets/superwhisper.png" alt="">Superwhisper</div>
-      <div class="app"><img src="assets/voiceink.png" alt="">VoiceInk</div>
-      <div class="app"><img src="assets/handy.png" alt="">Handy</div>
+      <div class="app"><img src="assets/hex.png" width="56" height="56" loading="lazy" alt="">Hex</div>
+      <div class="app"><img src="assets/wispr.png" width="56" height="56" loading="lazy" alt="">Wispr Flow</div>
+      <div class="app"><img src="assets/superwhisper.png" width="56" height="56" loading="lazy" alt="">Superwhisper</div>
+      <div class="app"><img src="assets/voiceink.png" width="56" height="56" loading="lazy" alt="">VoiceInk</div>
+      <div class="app"><img src="assets/handy.png" width="56" height="56" loading="lazy" alt="">Handy</div>
       <div class="app mic"><span class="own"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#737373" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><path d="M12 18v4"/></svg></span>Or the built-in mic</div>
     </div>
   </section>
@@ -276,11 +293,11 @@ footer .links { display: flex; gap: 24px; font-size: 13px; color: var(--text-2);
     <h2>Runs on the CLI you already pay for</h2>
     <div class="agents">
       <div class="agent">
-        <div class="top"><span class="ico"><img src="assets/claude.svg" alt=""></span><span><b>Claude Code</b><small>Uses your Claude Code login</small></span></div>
+        <div class="top"><span class="ico"><img src="assets/claude.svg" width="18" height="18" alt=""></span><span><b>Claude Code</b><small>Uses your Claude Code login</small></span></div>
         <div><div class="chips"><span>Opus</span><span>Sonnet</span></div><p>Opus or Sonnet returns the edit. Verbally writes it to the file, with undo.</p></div>
       </div>
       <div class="agent">
-        <div class="top"><span class="ico"><img src="assets/openai.svg" alt=""></span><span><b>Codex CLI</b><small>Uses your Codex login</small></span></div>
+        <div class="top"><span class="ico"><img src="assets/openai.svg" width="18" height="18" alt=""></span><span><b>Codex CLI</b><small>Uses your Codex login</small></span></div>
         <div><div class="chips"><span>Default model</span><span>Any model</span></div><p>Runs read-only and returns the edit. Verbally writes it to the file, with undo.</p></div>
       </div>
     </div>
@@ -309,7 +326,11 @@ if (freeze || matchMedia('(prefers-reduced-motion: reduce)').matches) {
   set(...all.slice(0, n + 1).filter(c => !(n >= 2 && c === 'talk')))
   said.textContent = phrase.join(' ')
 } else (async () => {
+  let seen = false
+  new IntersectionObserver(([e]) => { seen = e.isIntersecting }, { threshold: .35 }).observe(win)
+  const visible = async () => { while (!seen || document.hidden) await wait(250) }
   for (;;) {
+    await visible()
     set(); said.textContent = ''; await wait(900)
     set('point'); await wait(1300)
     set('point', 'talk')
@@ -320,11 +341,11 @@ if (freeze || matchMedia('(prefers-reduced-motion: reduce)').matches) {
     set('point', 'busy', 'done', 'out'); await wait(700)
   }
 })()
-const copy = document.getElementById('copy'), label = copy.querySelector('span')
+const copy = document.getElementById('copy'); let copied
 copy.onclick = async () => {
   await navigator.clipboard.writeText(document.getElementById('prompt').textContent)
-  label.textContent = 'Copied'
-  setTimeout(() => label.textContent = 'Copy', 1500)
+  copy.classList.add('done'); clearTimeout(copied)
+  copied = setTimeout(() => copy.classList.remove('done'), 1600)
 }
 </script>
 </body>
