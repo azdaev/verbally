@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Verbally — point at your app, say the change</title>
+<meta name="description" content="Hold ⌥, point at anything in your running app and talk. Claude Code or Codex edits the source.">
+<meta property="og:title" content="Verbally — point at your app, say the change">
+<meta property="og:description" content="Hold ⌥, point at anything and talk. The change lands in your source file.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><circle cx='12' cy='12' r='11' fill='%230a0a0a'/><circle cx='12' cy='12' r='4' fill='%23ff3b30'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400&family=Inter:wght@400;500;600&family=Onest:wght@700&display=swap" rel="stylesheet">
+<style>
+:root { --ink:#0A0A0A; --text-2:#5C5C5C; --text-3:#737373; --text-4:#8F8F8F; --line:#EDEDED; --soft:#FAFAFA; }
+* { box-sizing: border-box; }
+body { margin: 0; background: #fff; color: var(--ink); font: 400 16px/1.5 'Geist', ui-sans-serif, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+a { color: inherit; text-decoration: none; }
+a:hover { color: var(--ink); }
+.mono { font-family: 'Geist Mono', ui-monospace, monospace; }
+.wrap { width: min(1120px, 100% - 48px); margin: 0 auto; }
+
+/* Nav */
+nav { display: flex; justify-content: space-between; align-items: center; height: 60px; padding: 0 32px; border-bottom: 1px solid #F0F0F0; }
+nav .left, nav .right { display: flex; align-items: center; gap: 24px; }
+.logo { font: 700 21px/1 'Onest', sans-serif; letter-spacing: -0.05em; color: var(--ink); }
+nav .links { display: flex; gap: 24px; font-size: 14px; color: var(--text-2); }
+nav .links a, nav .gh { color: var(--text-2); transition: color .15s; }
+nav .gh { display: flex; align-items: center; gap: 6px; font-size: 14px; }
+.btn { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 14px; border-radius: 8px; background: var(--ink); color: #fff !important; font-weight: 500; font-size: 13.5px; border: 0; cursor: pointer; transition: opacity .15s, scale .15s; }
+.btn:hover { opacity: .85; }
+.btn:active { scale: .97; }
+
+/* Hero */
+.hero { text-align: center; padding: 88px 24px 48px; }
+h1 { margin: 0; font-weight: 600; font-size: 44px; line-height: 50px; letter-spacing: -0.04em; }
+.hero p { margin: 12px 0 0; font-size: 17px; line-height: 26px; color: #666; }
+
+/* Demo */
+.demo-box { display: flex; justify-content: center; padding: 0 24px; }
+.demo-scale { width: 1120px; flex-shrink: 0; }
+.window { position: relative; width: 1120px; border: 1px solid rgba(0,0,0,.16); border-radius: 12px; box-shadow: 0 0 0 .5px rgba(0,0,0,.06), 0 2px 4px rgba(0,0,0,.04), 0 32px 80px -24px rgba(0,0,0,.28); background: #F4F4F5; }
+.window > .chrome { display: block; width: 100%; height: 87px; border-radius: 11px 11px 0 0; }
+.page { position: relative; height: 540px; display: flex; justify-content: center; padding-top: 64px; border-radius: 0 0 11px 11px; }
+.todo { width: 440px; align-self: flex-start; padding: 28px; border-radius: 16px; background: #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.04), 0 1px 2px rgba(0,0,0,.04), 0 8px 24px -12px rgba(0,0,0,.08); font-family: 'Inter', sans-serif; }
+.todo header { display: flex; justify-content: space-between; align-items: baseline; padding: 0 4px 12px; }
+.todo header b { font-weight: 600; font-size: 24px; letter-spacing: -0.02em; color: #18181B; }
+.todo header span { font-size: 14px; color: #71717A; font-variant-numeric: tabular-nums; }
+.row { display: flex; align-items: center; gap: 12px; padding: 12px; font-size: 16px; color: #18181B; }
+.box { width: 20px; height: 20px; border-radius: 6px; border: 1.5px solid #D4D4D8; flex-shrink: 0; }
+.row.done { color: #A1A1AA; text-decoration: line-through; }
+.row.done .box { border: 0; background: #18181B url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'><path d='M20 6 9 17l-5-5'/></svg>") center/12px no-repeat; }
+.add { margin-top: 8px; padding: 14px 12px; border-radius: 10px; background: #18181B; color: #fff; font-weight: 500; font-size: 16px; text-align: center; box-shadow: 0 0 0 2px rgba(255,255,255,.95), 0 0 0 4px rgba(99,102,241,.85); }
+.cursor { position: absolute; left: 690px; top: 350px; filter: drop-shadow(0 1px 1.5px rgba(0,0,0,.3)); }
+.bar-done { position: absolute; right: 5px; bottom: 5px; width: 340px; height: 140px; }
+.diff { position: absolute; left: -64px; top: 314px; width: 380px; border-radius: 12px; background: #fff; overflow: hidden; box-shadow: 0 0 0 1px rgba(0,0,0,.08), 0 2px 4px rgba(0,0,0,.04), 0 24px 48px -16px rgba(0,0,0,.22); font: 12px/22px 'Geist Mono', monospace; }
+.diff header { display: flex; justify-content: space-between; align-items: center; height: 38px; padding: 0 14px; background: var(--soft); border-bottom: 1px solid #F0F0F0; color: #18181B; }
+.diff header span { display: flex; align-items: center; gap: 8px; }
+.diff .body { padding: 8px 0; }
+.diff .l { display: flex; white-space: pre; color: #52525B; }
+.diff .l i { font-style: normal; width: 36px; padding-right: 10px; text-align: right; color: #A1A1AA; flex-shrink: 0; }
+.diff .l s { text-decoration: none; width: 14px; flex-shrink: 0; }
+.diff .del { background: #FEF2F2; color: #B91C1C; }
+.diff .del i { color: #FCA5A5; }
+.diff .ins { background: #F0FDF4; color: #15803D; }
+.diff .ins i { color: #86EFAC; }
+.plus { color: #16A34A; } .minus { color: #DC2626; }
+
+/* Install */
+.install { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 48px 24px 40px; }
+.paste { text-align: center; color: var(--text-2); }
+.paste b { font-weight: 500; color: var(--ink); white-space: nowrap; }
+.paste img { width: 18px; height: 18px; vertical-align: -3px; margin: 0 5px 0 2px; }
+.prompt { display: flex; align-items: center; gap: 16px; width: min(930px, 100%); padding: 7px 7px 7px 18px; border: 1px solid #E8E8E8; border-radius: 12px; background: var(--soft); }
+.prompt code { flex: 1; min-width: 0; font: 13px/20px 'Geist Mono', monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.prompt code span { color: #666; }
+.prompt .btn { height: 34px; padding: 0 12px; flex-shrink: 0; }
+.install .note { font-size: 14px; color: var(--text-3); text-align: center; }
+.install .req { font-size: 12px; color: var(--text-4); }
+
+/* Sections */
+section { padding: 72px 0; display: flex; flex-direction: column; gap: 28px; }
+#how { padding-top: 56px; }
+h2 { margin: 0; font-weight: 600; font-size: 28px; line-height: 34px; letter-spacing: -0.03em; }
+.grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.step { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.step .vis { height: 168px; display: flex; align-items: center; justify-content: center; background: var(--soft); border-bottom: 1px solid #F0F0F0; }
+.step .txt { display: flex; flex-direction: column; gap: 6px; padding: 20px 22px 24px; }
+.step h3 { margin: 0; display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 16px; letter-spacing: -0.01em; }
+.step h3 .mono { font-size: 12px; font-weight: 400; color: var(--text-4); }
+.step p { margin: 0; font-size: 14px; line-height: 21px; color: var(--text-2); }
+.pt { position: relative; width: 200px; height: 90px; font-family: 'Inter', sans-serif; }
+.pt .el { position: absolute; left: 0; top: 22px; width: 200px; height: 44px; border-radius: 10px; background: #fff; box-shadow: 0 0 0 2px #fff, 0 0 0 4px rgba(99,102,241,.85); display: flex; align-items: center; padding-left: 14px; font-size: 14px; color: #A1A1AA; }
+.pt .chip { position: absolute; right: -6px; top: -4px; padding: 2px 8px; border-radius: 999px; background: #EEF0FE; font-weight: 500; font-size: 12px; color: #6366F1; }
+.pt svg { position: absolute; left: 150px; top: 50px; }
+.say { display: flex; align-items: center; gap: 8px; padding: 7px 16px 7px 7px; border-radius: 999px; background: #fff; box-shadow: 0 0 0 .5px rgba(0,0,0,.1), 0 8px 20px -8px rgba(0,0,0,.25); font: 500 13px 'Inter', sans-serif; color: #09090B; }
+.say .mic { width: 28px; height: 28px; border-radius: 999px; background: #FFE5E3; display: grid; place-items: center; }
+.say .wave { display: flex; align-items: center; gap: 2px; }
+.say .wave i { width: 2px; border-radius: 2px; background: #FF3B30; }
+.mini { width: 240px; border-radius: 10px; background: #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.07), 0 8px 20px -10px rgba(0,0,0,.2); overflow: hidden; font: 11px/1.5 'Geist Mono', monospace; }
+.mini header { display: flex; justify-content: space-between; padding: 7px 10px; border-bottom: 1px solid #F0F0F0; color: #18181B; }
+.mini div { padding: 2px 10px; }
+.mini .body { padding: 4px 0; }
+
+.apps { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; }
+.app { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 28px 12px 22px; border: 1px solid var(--line); border-radius: 14px; font-weight: 500; font-size: 15px; text-align: center; }
+.app img, .app .own { width: 56px; height: 56px; border-radius: 13px; box-shadow: 0 0 0 .5px rgba(0,0,0,.12), 0 4px 10px -4px rgba(0,0,0,.25); }
+.app.mic { border-style: dashed; border-color: #E0E0E0; background: var(--soft); color: var(--text-3); }
+.app .own { display: grid; place-items: center; background: #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.08); }
+
+.agents { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.agent { display: flex; flex-direction: column; gap: 28px; padding: 28px; border: 1px solid var(--line); border-radius: 16px; }
+.agent .top { display: flex; align-items: center; gap: 14px; }
+.agent .ico { width: 48px; height: 48px; border-radius: 12px; background: var(--soft); box-shadow: 0 0 0 1px rgba(0,0,0,.07); display: grid; place-items: center; }
+.agent .ico img { width: 26px; height: 26px; }
+.agent b { display: block; font-weight: 600; font-size: 18px; letter-spacing: -0.01em; }
+.agent small { display: block; font-size: 14px; color: var(--text-3); }
+.chips { display: flex; gap: 6px; margin-bottom: 12px; }
+.chips span { padding: 4px 10px; border-radius: 999px; background: #F4F4F5; font-size: 13px; color: #3F3F46; }
+.agent p { margin: 0; font-size: 14px; line-height: 21px; color: var(--text-2); }
+.after { font-size: 14px; color: var(--text-3); }
+
+footer { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; margin-top: 32px; padding: 28px 0 40px; border-top: 1px solid #F0F0F0; }
+footer .left { display: flex; align-items: center; gap: 16px; }
+footer .logo { font-size: 17px; }
+footer small { font-size: 13px; color: var(--text-4); }
+footer .links { display: flex; gap: 24px; font-size: 13px; color: var(--text-2); }
+
+@media (max-width: 900px) {
+  .grid3, .agents { grid-template-columns: 1fr; }
+  .apps { grid-template-columns: repeat(3, 1fr); }
+  nav .links { display: none; }
+}
+@media (max-width: 560px) {
+  nav { padding: 0 16px; }
+  h1 { font-size: 32px; line-height: 38px; }
+  .hero { padding: 56px 20px 36px; }
+  .apps { grid-template-columns: repeat(2, 1fr); }
+  .diff { display: none; }
+}
+</style>
+</head>
+<body>
+<nav>
+  <div class="left">
+    <a class="logo" href="./">verbally</a>
+    <div class="links"><a href="https://github.com/azdaev/verbally/blob/main/docs/DETAILS.md">Docs</a><a href="#how">How it works</a></div>
+  </div>
+  <div class="right">
+    <a class="gh" href="https://github.com/azdaev/verbally"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.7.5.5 5.7.5 12c0 5.1 3.3 9.4 7.9 10.9.6.1.8-.3.8-.6v-2c-3.2.7-3.9-1.5-3.9-1.5-.5-1.3-1.3-1.7-1.3-1.7-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.7-1.6-2.6-.3-5.3-1.3-5.3-5.7 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17.3 4.7 18.3 5 18.3 5c.7 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.1 0 4.4-2.7 5.4-5.3 5.7.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A11.5 11.5 0 0 0 23.5 12C23.5 5.7 18.3.5 12 .5Z"/></svg>GitHub</a>
+    <a class="btn" href="#install">Install</a>
+  </div>
+</nav>
+
+<header class="hero">
+  <h1>Point at your app. Say the change.</h1>
+  <p>Hold ⌥, point at anything and talk. The change lands in your source file.</p>
+</header>
+
+<div class="demo-box"><div class="demo-scale" id="demo">
+  <div class="window" role="img" aria-label="A todo app in Chrome. Verbally changed the dashed Add a task button into a solid one and shows the diff of src/App.tsx.">
+    <img class="chrome" src="assets/chrome.png" alt="">
+    <div class="page">
+      <div class="todo">
+        <header><b>Today</b><span>2 of 4 done</span></header>
+        <div class="row done"><span class="box"></span>Reply to Maya about the launch</div>
+        <div class="row"><span class="box"></span>Fix the signup button on mobile</div>
+        <div class="row done"><span class="box"></span>Order coffee beans</div>
+        <div class="row"><span class="box"></span>Write release notes</div>
+        <div class="add">+ Add a task</div>
+      </div>
+      <svg class="cursor" width="28" height="28" viewBox="0 0 28 28"><path d="M5 3 L5 22 L10 17.5 L13.5 25 L17 23.5 L13.5 16 L20.5 16 Z" fill="#0A0A0A" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg>
+      <img class="bar-done" src="assets/bar-done.png" alt="">
+    </div>
+    <div class="diff">
+      <header><span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3178C6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>src/App.tsx</span><span><span class="plus">+2</span><span class="minus">−1</span></span></header>
+      <div class="body">
+        <div class="l"><i>46</i><s> </s>&lt;button onClick={add}</div>
+        <div class="l del"><i></i><s>−</s>  className="border-dashed text-zinc-400"</div>
+        <div class="l ins"><i>47</i><s>+</s>  className="bg-zinc-900 text-white</div>
+        <div class="l ins"><i>48</i><s>+</s>    py-3.5 font-medium"</div>
+        <div class="l"><i>49</i><s> </s>&gt;</div>
+      </div>
+    </div>
+  </div>
+</div></div>
+
+<div class="install" id="install">
+  <div class="paste">Paste this into <b><img src="assets/claude.svg" alt="">Claude Code</b> or <b><img src="assets/openai.svg" alt="">Codex</b>, in your project:</div>
+  <div class="prompt">
+    <code id="prompt">Install Verbally here and start it: <span>https://raw.githubusercontent.com/azdaev/verbally/main/INSTALL.md</span></code>
+    <button class="btn" id="copy"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><span>Copy</span></button>
+  </div>
+  <div class="note">It installs Verbally, starts it and opens your app with the bar in the corner.</div>
+  <div class="req mono">Vite + React · Chrome · macOS &amp; Linux</div>
+</div>
+
+<main class="wrap">
+  <section id="how">
+    <h2>How it works</h2>
+    <div class="grid3">
+      <div class="step">
+        <div class="vis"><div class="pt"><div class="el">+ Add a task</div><div class="chip">button</div><svg width="22" height="22" viewBox="0 0 28 28"><path d="M5 3 L5 22 L10 17.5 L13.5 25 L17 23.5 L13.5 16 L20.5 16 Z" fill="#0A0A0A" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg></div></div>
+        <div class="txt"><h3><span class="mono">01</span>Hold ⌥ and point</h3><p>Move the mouse over the thing you mean. Verbally finds its line in your source.</p></div>
+      </div>
+      <div class="step">
+        <div class="vis"><div class="say"><span class="mic"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FF3B30" stroke-width="2.4" stroke-linecap="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><path d="M12 18v4"/></svg></span><span class="wave"><i style="height:6px"></i><i style="height:12px"></i><i style="height:8px"></i><i style="height:14px"></i></span>make it a solid button</div></div>
+        <div class="txt"><h3><span class="mono">02</span>Say the change</h3><p>“Bigger”, “not that blue”, “like that one”. No prompt to type.</p></div>
+      </div>
+      <div class="step">
+        <div class="vis"><div class="mini"><header><span>src/App.tsx</span><span><span class="plus">+2</span> <span class="minus">−1</span></span></header><div class="body"><div class="del">− border-dashed</div><div class="ins">+ bg-zinc-900 text-white</div><div class="ins">+ py-3.5 font-medium</div></div></div></div>
+        <div class="txt"><h3><span class="mono">03</span>It lands in the file</h3><p>Claude Code or Codex edits the source, Vite reloads the page. ⌘Z undoes it.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Keep the app that already hears you</h2>
+    <div class="apps">
+      <div class="app"><img src="assets/hex.png" alt="">Hex</div>
+      <div class="app"><img src="assets/wispr.png" alt="">Wispr Flow</div>
+      <div class="app"><img src="assets/superwhisper.png" alt="">Superwhisper</div>
+      <div class="app"><img src="assets/voiceink.png" alt="">VoiceInk</div>
+      <div class="app"><img src="assets/handy.png" alt="">Handy</div>
+      <div class="app mic"><span class="own"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#737373" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><path d="M12 18v4"/></svg></span>Or the built-in mic</div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Runs on the CLI you already pay for</h2>
+    <div class="agents">
+      <div class="agent">
+        <div class="top"><span class="ico"><img src="assets/claude.svg" alt=""></span><span><b>Claude Code</b><small>Uses your Claude Code login</small></span></div>
+        <div><div class="chips"><span>Opus</span><span>Sonnet</span></div><p>Opus or Sonnet returns the edit. Verbally writes it to the file, with undo.</p></div>
+      </div>
+      <div class="agent">
+        <div class="top"><span class="ico"><img src="assets/openai.svg" alt=""></span><span><b>Codex CLI</b><small>Uses your Codex login</small></span></div>
+        <div><div class="chips"><span>Default model</span><span>Any model</span></div><p>Runs read-only and returns the edit. Verbally writes it to the file, with undo.</p></div>
+      </div>
+    </div>
+    <div class="after">No API keys, no account. Switch the engine in Settings → Model.</div>
+  </section>
+
+  <footer>
+    <div class="left"><span class="logo">verbally</span><small>MIT License · by Amadi Azdaev</small></div>
+    <div class="links"><a href="https://github.com/azdaev/verbally">GitHub</a><a href="https://github.com/azdaev/verbally/blob/main/docs/DETAILS.md">Docs</a><a href="https://github.com/azdaev/verbally/blob/main/LIMITATIONS.md">Limitations</a></div>
+  </footer>
+</main>
+
+<script>
+// The demo is drawn at 1120 px; narrower screens get it scaled down whole.
+const demo = document.getElementById('demo')
+const fit = () => { const s = Math.min(1, (innerWidth - 48) / 1184); demo.style.zoom = s }
+fit(); addEventListener('resize', fit)
+const copy = document.getElementById('copy'), label = copy.querySelector('span')
+copy.onclick = async () => {
+  await navigator.clipboard.writeText(document.getElementById('prompt').textContent)
+  label.textContent = 'Copied'
+  setTimeout(() => label.textContent = 'Copy', 1500)
+}
+</script>
+</body>
+</html>
