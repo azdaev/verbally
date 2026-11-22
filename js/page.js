@@ -94,6 +94,7 @@ function paint(page) {
   $('canvas').replaceChildren()
   cur = null
   if (picking) { // undo or clear while a layout choice was open: the versions belonged to the old page
+    picking.stop?.() // and the layouts still in the making stop, not use the engine for a minute for nothing
     picking = null
     UI.closePicker()
     localStorage.removeItem('verbally.' + PAGE + '.versions')
@@ -119,7 +120,7 @@ async function importSite() {
   const doc = new DOMParser().parseFromString(await res.text(), 'text/html')
   const head = [...doc.head.querySelectorAll('link[rel=stylesheet], style')].map(el => el.outerHTML).join('\n')
   const scripts = [...doc.querySelectorAll('script[src]')].map(el => el.getAttribute('src'))
-  if (PAGE) localStorage.setItem('verbally.' + PAGE + '.head', head), localStorage.setItem('verbally.' + PAGE + '.scripts', JSON.stringify(scripts))
+  if (PAGE) stash('verbally.' + PAGE + '.head', head), stash('verbally.' + PAGE + '.scripts', JSON.stringify(scripts))
   document.head.insertAdjacentHTML('beforeend', head)
   siteStyled = !!head
   const blocks = [...doc.body.children].flatMap(el => el.localName === 'main' ? [...el.children] : [el]).filter(el => el.localName !== 'script')

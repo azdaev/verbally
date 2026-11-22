@@ -62,7 +62,7 @@ function howMany(text) {
 // The built versions are kept in browser storage until the user decides, so a reload brings the picker back.
 function layouts(sec, cmd, n, built, el) {
   const key = 'verbally.' + PAGE + '.versions'
-  const keepAll = () => PAGE && localStorage.setItem(key, JSON.stringify({ index: [...$('canvas').children].indexOf(sec), cmd, n, built }))
+  const keepAll = () => PAGE && stash(key, JSON.stringify({ index: [...$('canvas').children].indexOf(sec), cmd, n, built }))
   sec.busy = true // speech that comes now waits and changes the version that the user picks
   picking = sec
   const end = html => {

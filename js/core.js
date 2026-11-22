@@ -83,8 +83,10 @@ function leave(task, after) {
   setTimeout(() => task.update({ out: true }), after)
   setTimeout(() => task.remove(), after + 300)
 }
+// stash writes a copy for after a reload. A full browser storage loses only that copy: the work on the page goes on.
+const stash = (key, value) => { try { localStorage.setItem(key, value) } catch {} }
 // keepTodo keeps the phrases that Claude has not finished, so a reload does not lose them: the page says them again.
-const keepTodo = () => PAGE && localStorage.setItem('verbally.' + PAGE + '.todo',
+const keepTodo = () => PAGE && stash('verbally.' + PAGE + '.todo',
   JSON.stringify([...new Set([...$('canvas').children].flatMap(sec => [...sec.phrases.map(p => p.text), ...sec.queued]))]))
 // settle marks the phrases that are on the page now as done. `pending` holds the phrases that still wait.
 function settle(sec) {

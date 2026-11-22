@@ -63,7 +63,7 @@ function hear(text, final) {
     if (t.versions) {
       one.queued.push(cmd) // kept for a reload until the layout job starts and keeps itself
       keepTodo()
-      versions(one, cmd, el) // not awaited: the layouts take a minute, and the phrases after this one must not wait for them
+      versions(one, cmd, el).catch(e => note(e.message)) // not awaited: the layouts take a minute, and the phrases after this one must not wait for them
       return
     }
     const direct = !live().length || ok(pointed?.sec)
