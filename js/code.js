@@ -54,7 +54,7 @@ function hear(text, final) {
   change(cmd, pointed, el).then(n => {
     if (el.cancelled) return
     el.update({ kind: n ? 'done' : 'skip' })
-    leave(el, n ? 1400 : 900)
+    leave(el, el.files?.length ? 5000 : n ? 1400 : 900) // a card with files to open stays long enough to click one
   }).catch(e => {
     if (el.cancelled) return
     el.update({ kind: 'err' })
@@ -122,6 +122,11 @@ async function change(cmd, pointed, el) {
       leave(c, 1400)
     }
     tele({ event: 'code_edit', cmd, files: [...byFile.keys()], blocks: blocks.length, ms: Math.round(performance.now() - t0) })
+    // The card names each changed file at the line of its first edit; a click opens it there in the user's editor.
+    el.update({ files: await Promise.all([...byFile].map(async ([file, bs]) => {
+      const text = await read(file).catch(() => ''), at = text.indexOf(bs[0][3])
+      return { file, line: at < 0 ? 1 : text.slice(0, at).split('\n').length }
+    })) })
     return byFile.size
   } finally {
     if (locked && t.versions) pickOn = false
@@ -255,6 +260,8 @@ function travel(step) {
     .then(r => r.text().then(t => r.ok ? leave(chip((step > 0 ? 'Redone: ' : 'Undone: ') + t, 'done'), 1400) : note(t)))
 }
 UI.update({ tools: true, canUndo: true, canRedo: true })
+// Vite's own /__open-in-editor finds the editor that runs (VS Code, Cursor, WebStorm…); LAUNCH_EDITOR picks one by hand.
+UI.actions.open = f => fetch('/__open-in-editor?file=' + encodeURIComponent((root ? root + '/' : '') + f.file + ':' + f.line)) // absolute: Vite resolves a relative path from its own folder
 // Start the engine now, so the first phrase does not wait for it.
 codeReady.then(() => { if (ENGINE === 'claude') return fetch(engineURL(), { method: 'POST', body: JSON.stringify({ model: MODEL, effort: EFFORT, messages: [{ content: system }] }) }) }).catch(() => {})
 // Test hooks: ?vsay=phrase&vpoint=css selector&vwait=ms says a phrase while pointing at that element, without hands.

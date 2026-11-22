@@ -205,6 +205,10 @@
 @keyframes think { from { background-position: 640px 0; } to { background-position: 0 0; } }
 #tasks .ph.done { background: var(--vb-success-bg); color: var(--vb-success); }
 #tasks .ph.done b::before { content: '✓ '; }
+#tasks .ph .files { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+#tasks .ph .files button { padding: 2px 8px; border: 0; border-radius: 999px; background: color-mix(in srgb, currentColor 10%, transparent); color: inherit;
+                           font: 12px/18px ui-monospace, 'Geist Mono', monospace; cursor: pointer; }
+#tasks .ph .files button:hover { background: color-mix(in srgb, currentColor 18%, transparent); }
 #tasks .ph.look:not(.done) b::before { content: '👁 '; }
 #tasks .ph.skip { opacity: .5; text-decoration: line-through; }
 #tasks .ph.err { background: var(--vb-danger-bg); color: var(--vb-danger); }

@@ -36,6 +36,7 @@ Verbally starts the app's own Vite dev server on port 5180, with the bar on top.
 - **Type instead:** press `/` (or the keyboard button on the bar), type the change and press Enter. The element under the mouse counts, as with speech.
 - **Many versions:** say "show me three versions of this card", then pick one.
 - **Undo and redo:** `⌘Z` and `⇧⌘Z` (`Ctrl+Z` and `Shift+Ctrl+Z` on Linux), or the buttons on the bar. Undo puts the file back.
+- **Open the change:** a done card names each changed file at the line of the edit. A click opens it there in your editor through Vite's `/__open-in-editor` (it finds a running VS Code, Cursor, WebStorm and others; set `LAUNCH_EDITOR` to pick one).
 - **Cancel:** the `×` on a task card.
 
 Code mode works with **Vite + React** today. See [LIMITATIONS.md](../LIMITATIONS.md) for other stacks.
