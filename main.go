@@ -282,7 +282,9 @@ func main() {
 			return
 		}
 		os.MkdirAll("pages", 0o700)
-		os.WriteFile(filepath.Join("pages", name+".json"), body, 0o600)
+		if err := os.WriteFile(filepath.Join("pages", name+".json"), body, 0o600); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
 	})
 	http.HandleFunc("POST /api/log", func(w http.ResponseWriter, r *http.Request) {
 		var v map[string]any

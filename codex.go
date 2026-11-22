@@ -67,7 +67,11 @@ func codexConfigModel() string {
 		}
 		key, value, ok := strings.Cut(line, "=")
 		if ok && strings.TrimSpace(key) == "model" {
-			if model, err := strconv.Unquote(strings.TrimSpace(strings.SplitN(value, "#", 2)[0])); err == nil {
+			value = strings.TrimSpace(strings.SplitN(value, "#", 2)[0])
+			if len(value) >= 2 && value[0] == '\'' && value[len(value)-1] == '\'' { // a TOML literal string: 'gpt-5-codex'
+				return value[1 : len(value)-1]
+			}
+			if model, err := strconv.Unquote(value); err == nil {
 				return model
 			}
 		}

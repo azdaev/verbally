@@ -78,8 +78,11 @@ function store() {
     }
   }
   // The server keeps a copy in pages/, so the page can be reviewed and compared with the telemetry.
-  fetch('/api/page?name=' + encodeURIComponent(PAGE), { method: 'POST', body: history[at], keepalive: true }).catch(() => {})
+  // A copy that the server could not write is said once, not at every change.
+  fetch('/api/page?name=' + encodeURIComponent(PAGE), { method: 'POST', body: history[at], keepalive: true })
+    .then(async r => { if (!r.ok && !copyFailed) copyFailed = true, note('The copy in ~/.verbally/pages is not saved: ' + (await r.text()).trim()) }).catch(() => {})
 }
+let copyFailed = false
 
 // travel moves through the history: -1 is undo, +1 is redo.
 function travel(step) {

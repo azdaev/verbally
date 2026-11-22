@@ -35,8 +35,10 @@ func photo(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "no image at this address", http.StatusBadGateway)
 				return
 			}
-			os.MkdirAll("photos", 0o700)
-			os.WriteFile(file, img, 0o600)
+			if err := keep(file, img); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
 			logEvent(map[string]any{"src": "server", "event": "photo", "url": address, "bytes": len(img)})
 		}
 		serve(w, r, file)
@@ -105,11 +107,31 @@ func fetchPhoto(r *http.Request, q, file string) error {
 		if err != nil {
 			return err
 		}
-		os.MkdirAll("photos", 0o700)
 		logEvent(map[string]any{"src": "server", "event": "photo", "q": q, "bytes": len(img), "ms": time.Since(started).Milliseconds()})
-		return os.WriteFile(file, img, 0o600)
+		return keep(file, img)
 	}
 	return os.ErrNotExist
+}
+
+// keep writes a photo under a spare name and then renames it: a request that finds the file finds it whole,
+// and the browser never keeps half a photo for a year.
+func keep(file string, img []byte) error {
+	os.MkdirAll("photos", 0o700)
+	f, err := os.CreateTemp("photos", "part-*")
+	if err != nil {
+		return err
+	}
+	_, err = f.Write(img)
+	if cerr := f.Close(); err == nil {
+		err = cerr
+	}
+	if err == nil {
+		err = os.Rename(f.Name(), file)
+	}
+	if err != nil {
+		os.Remove(f.Name())
+	}
+	return err
 }
 
 // get downloads one address. Wikimedia sometimes refuses a burst of requests, so a refusal gets one more try after a second.

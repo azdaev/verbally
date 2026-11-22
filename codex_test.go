@@ -234,6 +234,10 @@ func TestCodexDefaultModelComesFromConfig(t *testing.T) {
 	if got := strings.Join(codexArgs(chatRequest{Model: "chosen"}, "/tmp/reply", nil), " "); !strings.Contains(got, "--model chosen ") {
 		t.Errorf("codexArgs(chosen) = %q, want the chosen model", got)
 	}
+	os.WriteFile(filepath.Join(dir, "config.toml"), []byte("model = 'gpt-literal'\n"), 0600)
+	if got := strings.Join(codexArgs(chatRequest{}, "/tmp/reply", nil), " "); !strings.Contains(got, "--model gpt-literal ") {
+		t.Errorf("codexArgs(literal string) = %q, want --model gpt-literal", got)
+	}
 	os.WriteFile(filepath.Join(dir, "config.toml"), []byte("[profiles.fast]\nmodel = \"other\"\n"), 0600)
 	if got := strings.Join(codexArgs(chatRequest{}, "/tmp/reply", nil), " "); strings.Contains(got, "--model") {
 		t.Errorf("codexArgs(model only in a table) = %q, want no --model", got)
