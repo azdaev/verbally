@@ -242,9 +242,14 @@ func claudeChat(w http.ResponseWriter, r *http.Request) {
 	}()
 	var tools []string
 	defer func() { ev["tools"] = tools }() // runs before the deferred logEvent
-	lines := bufio.NewScanner(p.out)
-	lines.Buffer(nil, 4<<20)
-	for lines.Scan() {
+	// A Reader, not a Scanner: a line of any size (a tool result with a picture) is read whole, and never ends the reply
+	// in the middle with no word to the page.
+	lines := bufio.NewReader(p.out)
+	for {
+		line, err := lines.ReadBytes('\n')
+		if err != nil && len(line) == 0 {
+			break
+		}
 		var msg struct {
 			Type    string `json:"type"`
 			Message struct {
@@ -262,7 +267,7 @@ func claudeChat(w http.ResponseWriter, r *http.Request) {
 				} `json:"delta"`
 			} `json:"event"`
 		}
-		if json.Unmarshal(lines.Bytes(), &msg) != nil {
+		if json.Unmarshal(line, &msg) != nil {
 			continue
 		}
 		// With tools the process writes several messages, and only the last one is the reply. It ends with a "result" line.
@@ -295,6 +300,7 @@ func claudeChat(w http.ResponseWriter, r *http.Request) {
 	}
 	// Without this the page shows an empty section and no reason.
 	if !wrote && r.Context().Err() == nil {
+		p.stop() // stderr is complete only after Wait; reading it before races with its copy
 		http.Error(w, "claude wrote no text: "+p.errs.String(), http.StatusBadGateway)
 	}
 }
