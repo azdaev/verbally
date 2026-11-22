@@ -43,6 +43,7 @@ function Toolbar() {
   return <div id="bar" role="toolbar" aria-label="Verbally" className={[s.busy && 'busy', s.recording && 'rec', s.hears && 'hears', s.waiting && 'wait'].filter(Boolean).join(' ')}>
     <IconButton id="mic" label="Microphone" tip={s.settings.dictation ? "Verbally's own microphone · click" : `Talk · hold ${MAC ? '⌥ Option' : 'Alt'} or Space`} icon={Mic} className={s.mic ? 'on' : ''} aria-pressed={s.mic} onClick={() => ui.actions.mic?.()} />
     <span id="wave" aria-hidden="true">{[0,1,2,3,4].map(i => <i key={i} />)}</span>
+    {s.typing ? <TypeField /> : <IconButton id="type" label="Type a phrase" tip="Type instead of talking · /" icon={Keyboard} onClick={() => ui.update({ typing: true })} />}
     <div id="say" className={width > 420 ? 'over' : ''} style={{ width: s.live ? width : 0 }}><div id="heard" ref={heard} aria-live="polite"><span id="live">{s.live}</span></div></div>
     <span id="pt" title="The model sees this element">{s.pointer}</span>
     <div id="tools" className={s.tools ? 'open' : ''}>
@@ -53,6 +54,15 @@ function Toolbar() {
     </div>
     <IconButton id="more" label="Settings" tip="Settings" icon={Settings} onClick={() => ui.update({ settingsOpen: true })} />
   </div>
+}
+// A phrase typed instead of spoken: for an office, a café or a call. Enter sends it the way speech goes, Esc closes.
+function TypeField() {
+  const [text, setText] = useState('')
+  const close = () => ui.update({ typing: false })
+  return <form id="typed" onSubmit={e => { e.preventDefault(); if (text.trim()) ui.actions.type?.(text.trim()); close() }}>
+    <input autoFocus aria-label="Type a phrase" placeholder="Say it in words…" value={text} onChange={e => setText(e.target.value)}
+      onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); close() } }} onBlur={() => text.trim() || close()} />
+  </form>
 }
 const rawError = text => /Codex/.test(text) ? 'Codex could not make the change'
   : /claude/i.test(text) ? 'Claude Code could not make the change'

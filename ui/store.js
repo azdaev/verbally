@@ -1,7 +1,7 @@
 // The engine owns edits. React owns controls. Snapshots contain UI state only.
 export function createUIStore(code = false) {
   let state = { code, live: '', pointer: '', busy: false, recording: false, hears: false, waiting: false,
-    mic: false, tools: code, canUndo: code, canRedo: code, canClear: false, settingsOpen: false,
+    mic: false, typing: false, tools: code, canUndo: code, canRedo: code, canClear: false, settingsOpen: false,
     settings: { engine: 'claude', dictation: false, lang: 'en-US', model: 'claude-opus-5-5', talk: {} },
     tasks: [], picker: null }
   const listeners = new Set()

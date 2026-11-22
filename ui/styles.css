@@ -210,6 +210,10 @@
 #tasks .ph.err { background: var(--vb-danger-bg); color: var(--vb-danger); }
 #tasks .ph.out { opacity: 0; filter: blur(4px); scale: .9; }
 #live { flex: none; color: var(--vb-text-2); }
+#typed { display: flex; flex: 0 1 320px; min-width: 0; } /* shrinks before the bar leaves a narrow screen */
+#typed input { width: 100%; min-width: 0; height: 36px; margin: 0 4px; padding: 0 12px; border: 0; border-radius: 18px; outline: none;
+               background: var(--vb-fill); color: var(--vb-text); font: inherit; }
+#typed input:focus-visible { box-shadow: 0 0 0 2px var(--vb-focus); }
 #live:empty { display: none; }
 
 /* Picker: the versions of one image that the model offers. It sits above the bar. A version under the mouse shows on the page at once. */

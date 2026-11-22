@@ -70,7 +70,8 @@ addEventListener('mousemove', e => {
 })
 // The place of the mouse, with or without ⌥: a phrase with no pointer is about the element under the mouse.
 let mouse = null
-addEventListener('mousemove', e => { mouse = { x: e.clientX, y: e.clientY } }, true)
+// The bar does not count: a click on it (the typing field, undo) keeps the app's element that the mouse was on.
+addEventListener('mousemove', e => { if (!UI.isUIEvent(e)) mouse = { x: e.clientX, y: e.clientY } }, true)
 const underMouse = () => {
   const el = mouse && document.elementFromPoint(mouse.x, mouse.y)
   return el && !el.closest('verbally-ui') ? el : null
@@ -153,7 +154,7 @@ setupReady.then(d => {
   if (localStorage.getItem('verbally.told')) return
   localStorage.setItem('verbally.told', 1)
   const c = dictation ? chip(d.key ? `Hold ${d.key}, point and talk` : 'Use its key, point with the mouse and talk', 'hint')
-    : chip('Hold ⌥ or Space and talk. Move the mouse while you hold ⌥ to point at a thing.', 'hint')
+    : chip('Hold ⌥ or Space and talk, or press / to type. Move the mouse while you hold ⌥ to point at a thing.', 'hint')
   c.update({ title: dictation ? 'Speech: ' + (d.app || 'your dictation app') : 'Talk to change the page' })
   leave(c, 9000)
 }).catch(() => {})
@@ -362,6 +363,13 @@ function webSpeech() {
 }
 
 UI.actions.mic = toggleMic
+// A typed phrase goes the same way as a spoken one. / opens the field, and the mouse stays on the thing it means.
+UI.actions.type = text => { tele({ event: 'typed', chars: text.length }); hear(text, true) }
+addEventListener('keydown', e => {
+  if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey || isTextInput(e) || settingsOpen() || UI.getSnapshot().typing) return
+  e.preventDefault()
+  UI.update({ typing: true })
+})
 UI.actions.undo = () => travel(-1)
 UI.actions.redo = () => travel(1)
 UI.actions.cancel = task => cancel(task)
