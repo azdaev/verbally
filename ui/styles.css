@@ -190,7 +190,7 @@
                 color: var(--vb-text-2); font: 16px/1 ui-sans-serif, system-ui; cursor: pointer; opacity: 0; transition: opacity .15s, background .15s, color .15s; }
 #tasks .ph:hover .x { opacity: 1; }
 #tasks .ph .x:hover { background: var(--vb-danger-soft); color: var(--vb-danger); }
-#tasks .ph:is(.done, .skip, .err) .x { display: none; }
+#tasks .ph:is(.done, .skip) .x { display: none; }
 #tasks .ph { box-sizing: border-box; width: 320px; padding: 10px 14px; border-radius: var(--vb-radius-lg); background: var(--vb-surface); box-shadow: var(--vb-shadow-lg);
              -webkit-backdrop-filter: var(--vb-glass); backdrop-filter: var(--vb-glass);
              animation: word .35s var(--vb-ease) both; transition: opacity .3s var(--vb-ease), filter .3s var(--vb-ease), scale .3s var(--vb-ease), color .25s, background-color .25s; }

@@ -26,6 +26,8 @@ ui.isUIEvent = e => e.composedPath().includes(host)
 window.VerballyUI = ui
 const useUI = () => useSyncExternalStore(ui.subscribe, ui.getSnapshot)
 
+// Off a Mac the keys are Ctrl and Alt (js/input.js takes Ctrl+Z there).
+const MAC = /Mac/.test(navigator.platform), CMD = MAC ? '⌘' : 'Ctrl', OPT = MAC ? '⌥' : 'Alt'
 // tip: the bar's own tooltip (data-tip in styles.css). Buttons outside the bar keep the native title.
 function IconButton({ label, tip, icon: Icon, ...props }) {
   return <Button variant="ghost" size="icon" aria-label={label} {...(tip ? { 'data-tip': tip } : { title: label })} {...props}><Icon aria-hidden="true" /></Button>
@@ -39,14 +41,14 @@ function Toolbar() {
     return () => observer.disconnect()
   }, [])
   return <div id="bar" role="toolbar" aria-label="Verbally" className={[s.busy && 'busy', s.recording && 'rec', s.hears && 'hears', s.waiting && 'wait'].filter(Boolean).join(' ')}>
-    <IconButton id="mic" label="Microphone" tip={s.settings.dictation ? "Verbally's own microphone · click" : 'Talk · hold ⌥ Option or Space'} icon={Mic} className={s.mic ? 'on' : ''} aria-pressed={s.mic} onClick={() => ui.actions.mic?.()} />
+    <IconButton id="mic" label="Microphone" tip={s.settings.dictation ? "Verbally's own microphone · click" : `Talk · hold ${MAC ? '⌥ Option' : 'Alt'} or Space`} icon={Mic} className={s.mic ? 'on' : ''} aria-pressed={s.mic} onClick={() => ui.actions.mic?.()} />
     <span id="wave" aria-hidden="true">{[0,1,2,3,4].map(i => <i key={i} />)}</span>
     <div id="say" className={width > 420 ? 'over' : ''} style={{ width: s.live ? width : 0 }}><div id="heard" ref={heard} aria-live="polite"><span id="live">{s.live}</span></div></div>
     <span id="pt" title="The model sees this element">{s.pointer}</span>
     <div id="tools" className={s.tools ? 'open' : ''}>
       <span className="sep" />
-      <IconButton id="back" label="Undo" tip={s.code ? 'Undo the last code change · ⌘Z' : 'Undo · ⌘Z'} icon={Undo2} disabled={!s.canUndo} onClick={() => ui.actions.undo?.()} />
-      <IconButton id="fwd" label="Redo" tip="Redo · ⇧⌘Z" icon={Redo2} disabled={!s.canRedo} onClick={() => ui.actions.redo?.()} />
+      <IconButton id="back" label="Undo" tip={(s.code ? 'Undo the last code change · ' : 'Undo · ') + (MAC ? '⌘Z' : 'Ctrl+Z')} icon={Undo2} disabled={!s.canUndo} onClick={() => ui.actions.undo?.()} />
+      <IconButton id="fwd" label="Redo" tip={'Redo · ' + (MAC ? '⇧⌘Z' : 'Shift+Ctrl+Z')} icon={Redo2} disabled={!s.canRedo} onClick={() => ui.actions.redo?.()} />
       {!s.code && <IconButton id="clear" label="Clear the page" tip="Clear the page" icon={Trash2} disabled={!s.canClear} onClick={() => ui.actions.clear?.()} />}
     </div>
     <IconButton id="more" label="Settings" tip="Settings" icon={Settings} onClick={() => ui.update({ settingsOpen: true })} />
@@ -65,6 +67,7 @@ function Tasks() {
     return <div key={t.id} className={`ph ${t.kind} ${pending ? 'wip' : ''} ${t.look ? 'look' : ''} ${t.out ? 'out' : ''}`}>
       <b>{title || t.text}</b>{title ? <small>{t.text}</small> : pending && <small>Working…</small>}
       {pending && <IconButton className="x" label={`Cancel ${t.text}`} icon={X} onClick={() => ui.actions.cancel?.(t.handle)} />}
+      {t.kind === 'err' && <IconButton className="x" label="Dismiss" icon={X} onClick={() => t.handle.remove()} />}
     </div>
   })}</div>
 }
@@ -125,7 +128,7 @@ function PickerPanel({ p }) {
 }
 const languages = { 'en-US': 'English', 'ru-RU': 'Русский', 'es-ES': 'Español', 'de-DE': 'Deutsch', 'fr-FR': 'Français', 'pt-BR': 'Português', 'zh-CN': '中文', 'ja-JP': '日本語' }
 const Key = ({ children }) => <kbd>{children}</kbd>
-const TalkKey = ({ settings: s }) => s.dictation ? (s.talk.key ? <>hold <Key>{s.talk.key}</Key></> : 'the key of your app') : <>hold <Key>⌥</Key> or <Key>Space</Key></>
+const TalkKey = ({ settings: s }) => s.dictation ? (s.talk.key ? <>hold <Key>{s.talk.key}</Key></> : 'the key of your app') : <>hold <Key>{OPT}</Key> or <Key>Space</Key></>
 function Choice({ value, title, detail, disabled, tag }) {
   const id = React.useId()
   return <label className={`item opt ${disabled ? 'off' : ''}`} htmlFor={id}>
@@ -187,10 +190,10 @@ function SettingsWindow() {
           </div></TabsContent>
         <TabsContent value="keys"><h3>Keys</h3><div className="list">
           <div className="item"><span>Talk</span><span><TalkKey settings={s} /></span></div>
-          <div className="item"><span>Point at a thing</span><span>hold <Key>⌥</Key>, move the mouse</span></div>
-          <div className="item"><span>Mark a place ① ②</span><span>hold <Key>⌥</Key>, stop the mouse</span></div>
-          <div className="item"><span>Undo</span><span><Key>⌘</Key><Key>Z</Key></span></div>
-          <div className="item"><span>Redo</span><span><Key>⇧</Key><Key>⌘</Key><Key>Z</Key></span></div>
+          <div className="item"><span>Point at a thing</span><span>hold <Key>{OPT}</Key>, move the mouse</span></div>
+          <div className="item"><span>Mark a place ① ②</span><span>hold <Key>{OPT}</Key>, stop the mouse</span></div>
+          <div className="item"><span>Undo</span><span><Key>{CMD}</Key><Key>Z</Key></span></div>
+          <div className="item"><span>Redo</span><span><Key>{MAC ? '⇧' : 'Shift'}</Key><Key>{CMD}</Key><Key>Z</Key></span></div>
         </div></TabsContent>
       </div>
     </Tabs>
