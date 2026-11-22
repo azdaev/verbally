@@ -343,7 +343,11 @@ if (freeze || matchMedia('(prefers-reduced-motion: reduce)').matches) {
 })()
 const copy = document.getElementById('copy'); let copied
 copy.onclick = async () => {
-  await navigator.clipboard.writeText(document.getElementById('prompt').textContent)
+  const prompt = document.getElementById('prompt')
+  try { await navigator.clipboard.writeText(prompt.textContent) } catch { // no clipboard access: select the text for ⌘C
+    getSelection().selectAllChildren(prompt)
+    return
+  }
   copy.classList.add('done'); clearTimeout(copied)
   copied = setTimeout(() => copy.classList.remove('done'), 1600)
 }
