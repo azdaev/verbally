@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"net/http"
@@ -56,6 +58,7 @@ func numbers(tag string) (n [3]int, ok bool) {
 }
 
 // newer tells if release a comes after release b. A build from source ("dev") has no number: nothing is newer than it.
+// With equal numbers a final release comes after its test build: v1.2.3 after v1.2.3-rc1.
 func newer(a, b string) bool {
 	x, okx := numbers(a)
 	y, oky := numbers(b)
@@ -67,7 +70,7 @@ func newer(a, b string) bool {
 			return x[i] > y[i]
 		}
 	}
-	return false
+	return !strings.Contains(a, "-") && strings.Contains(b, "-")
 }
 
 // checkUpdate runs at start, beside the server: a slow network must not hold the start.
@@ -104,20 +107,37 @@ func update() int {
 		fmt.Fprintln(os.Stderr, "verbally:", err)
 		return 1
 	}
-	res, err := http.Get(fmt.Sprintf("%s/releases/download/%s/verbally-%s-%s", repo, tag, runtime.GOOS, runtime.GOARCH))
-	if err == nil && res.StatusCode != http.StatusOK {
-		err = fmt.Errorf("release %s has no program for %s %s (status %d)", tag, runtime.GOOS, runtime.GOARCH, res.StatusCode)
+	// The release lists the SHA-256 of each program in SHA256SUMS (release.sh). The download must match it before it ever runs.
+	name := fmt.Sprintf("verbally-%s-%s", runtime.GOOS, runtime.GOARCH)
+	sums, err := download(tag, "SHA256SUMS")
+	want := ""
+	for _, line := range strings.Split(string(sums), "\n") {
+		if f := strings.Fields(line); len(f) == 2 && f[1] == name {
+			want = f[0]
+		}
+	}
+	if err == nil && want == "" {
+		err = fmt.Errorf("release %s lists no checksum for %s", tag, name)
+	}
+	var body []byte
+	if err == nil {
+		body, err = download(tag, name)
+	}
+	if sum := sha256.Sum256(body); err == nil && hex.EncodeToString(sum[:]) != want {
+		err = fmt.Errorf("the download of %s does not match its checksum", name)
 	}
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "verbally:", err)
 		return 1
 	}
-	defer res.Body.Close()
 	// The new program goes beside the old one and takes its place in one step, so a broken download leaves the old one whole.
 	next := self + ".new"
 	f, err := os.OpenFile(next, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o755)
 	if err == nil {
-		_, err = io.Copy(f, res.Body)
+		_, err = f.Write(body)
+		if serr := f.Sync(); err == nil { // on disk before the rename, so a power cut leaves no empty program
+			err = serr
+		}
 		if cerr := f.Close(); err == nil {
 			err = cerr
 		}
@@ -137,4 +157,18 @@ func update() int {
 	}
 	fmt.Printf("Verbally %s -> %s. A Verbally that runs now keeps the old version: stop it and start it again.\n", version, tag)
 	return 0
+}
+
+// download gets one file of a release. A stalled connection fails after 5 minutes, not never.
+func download(tag, name string) ([]byte, error) {
+	c := &http.Client{Timeout: 5 * time.Minute}
+	res, err := c.Get(fmt.Sprintf("%s/releases/download/%s/%s", repo, tag, name))
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("release %s has no %s (status %d)", tag, name, res.StatusCode)
+	}
+	return io.ReadAll(io.LimitReader(res.Body, 200<<20))
 }

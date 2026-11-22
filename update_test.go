@@ -13,6 +13,8 @@ func TestNewer(t *testing.T) {
 		{"v0.2.1", "v0.2.1", false},
 		{"v0.2.0", "v0.2.1", false},
 		{"v0.3.0", "v0.2.1-test", true},
+		{"v0.2.1", "v0.2.1-rc1", true}, // the final release after its test build
+		{"v0.2.1-rc1", "v0.2.1", false},
 		{"v0.3.0", "dev", false}, // a build from source gets no update notes
 		{"tag", "v0.2.1", false},
 		{"", "v0.2.1", false},
