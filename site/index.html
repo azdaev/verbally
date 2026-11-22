@@ -140,6 +140,7 @@ h1 { margin: 0; font-weight: 600; font-size: 44px; line-height: 50px; letter-spa
 .install .note { font-size: 14px; color: var(--text-3); text-align: center; }
 .install .req { font-size: 12px; color: var(--text-3); text-align: center; }
 .install .req b { font-weight: 400; color: var(--ink); }
+.install .req span + span::before { content: ' · '; }
 
 /* Sections */
 section { padding: 72px 0; display: flex; flex-direction: column; gap: 28px; }
@@ -199,10 +200,34 @@ footer .links { display: flex; gap: 24px; font-size: 13px; color: var(--text-2);
 @media (max-width: 560px) {
   nav { padding: 0 16px; }
   h1 { font-size: 32px; line-height: 38px; }
-  .hero { padding: 56px 20px 36px; }
-  .apps { grid-template-columns: repeat(2, 1fr); }
-  /* The whole prompt stays readable before it is copied, not cut at "Install Verbally here and …". */
-  .prompt code { white-space: normal; overflow-wrap: anywhere; }
+  .hero { padding: 40px 20px 28px; }
+  h2 { font-size: 24px; line-height: 30px; }
+  section { padding: 32px 0; gap: 20px; }
+  #how { padding-top: 24px; }
+  /* The demo: the app's page alone, without the Chrome frame and the diff (step 03 shows it), so it is drawn twice as large. */
+  .demo-box { padding: 0 20px; }
+  .demo-scale { width: 520px; padding: 0; }
+  .window { width: 520px; border-radius: 14px; }
+  .window > .chrome, .diff { display: none; }
+  .page { height: 500px; padding-top: 24px; border-radius: 13px; overflow: hidden; }
+  .talk .vb .vsay { max-width: 170px; -webkit-mask-image: linear-gradient(90deg, transparent, #000 28px); mask-image: linear-gradient(90deg, transparent, #000 28px); } /* the latest words, as a live transcript */
+  .cursor { left: 400px; top: 310px; translate: 100px 90px; } /* the Add button moved with the narrower window */
+  /* Install: the prompt above, a full-width Copy below; the whole prompt stays readable before it is copied. */
+  .install { padding: 32px 20px 8px; gap: 12px; }
+  .paste { font-size: 15px; }
+  .prompt { flex-direction: column; align-items: stretch; gap: 12px; padding: 14px; }
+  .prompt code { white-space: normal; font-size: 12.5px; line-height: 19px; }
+  .prompt .btn { height: 42px; }
+  .install .req { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; font: 13px/18px 'Geist', sans-serif; }
+  .install .req b { width: 100%; color: var(--text-3); }
+  .install .req span { padding: 4px 10px; border-radius: 999px; background: #F4F4F5; color: #3F3F46; }
+  .install .req span + span::before { content: none; }
+  /* Dictation apps: three to a row, not two big cards. */
+  .apps { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .app { gap: 10px; padding: 16px 4px 12px; font-size: 13px; }
+  .app img, .app .own { width: 44px; height: 44px; border-radius: 11px; }
+  .agent { gap: 20px; padding: 20px; }
+  .step .vis { height: 128px; }
 }
 </style>
 </head>
@@ -264,11 +289,11 @@ footer .links { display: flex; gap: 24px; font-size: 13px; color: var(--text-2);
 <div class="install" id="install">
   <div class="paste">Paste this into <b><img src="assets/claude.svg" width="18" height="18" alt="">Claude Code</b> or <b><img src="assets/openai.svg" width="18" height="18" alt="">Codex</b>, in your project:</div>
   <div class="prompt">
-    <code id="prompt">Install Verbally here and start it: <span>https://raw.githubusercontent.com/azdaev/verbally/main/INSTALL.md</span></code>
+    <code id="prompt">Install Verbally here and start it: <span>https://<wbr>raw.githubusercontent.com/<wbr>azdaev/<wbr>verbally/<wbr>main/<wbr>INSTALL.md</span></code>
     <button class="btn" id="copy" aria-label="Copy the install prompt"><span class="st idle"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copy</span><span class="st ok"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Copied</span></button>
   </div>
   <div class="note">It installs Verbally, starts it and opens your app with the bar in the corner. <a class="what" href="https://github.com/azdaev/verbally/blob/main/INSTALL.md">What the agent does →</a></div>
-  <div class="req mono"><b>Needs</b> a Vite + React app · Claude Code or Codex CLI, signed in · Chrome · macOS or Linux</div>
+  <div class="req mono"><b>Needs</b> <span>a Vite + React app</span><span>Claude Code or Codex CLI, signed in</span><span>Chrome</span><span>macOS or Linux</span></div>
 </div>
 
 <main class="wrap">
@@ -332,7 +357,9 @@ footer .links { display: flex; gap: 24px; font-size: 13px; color: var(--text-2);
 <script>
 // The demo is drawn at 1120 px; narrower screens get it scaled down whole.
 const demo = document.getElementById('demo')
-const fit = () => { const s = Math.min(1, innerWidth / 1248); demo.style.zoom = s }
+// A phone gets the page area alone, 560 px wide with its margins (the CSS for max-width: 560px), so it is drawn twice as large.
+const phone = matchMedia('(max-width: 560px)')
+const fit = () => { const s = Math.min(1, innerWidth / (phone.matches ? 560 : 1248)); demo.style.zoom = s }
 fit(); addEventListener('resize', fit)
 // The demo loop. ?step=point|talk|busy|done freezes one state (for screenshots).
 const win = demo.querySelector('.window'), said = document.getElementById('said')
