@@ -182,6 +182,8 @@ h2 { margin: 0; font-weight: 600; font-size: 28px; line-height: 34px; letter-spa
 .chips span { padding: 4px 10px; border-radius: 999px; background: #F4F4F5; font-size: 13px; color: #3F3F46; }
 .agent p { margin: 0; font-size: 14px; line-height: 21px; color: var(--text-2); }
 .after { font-size: 14px; color: var(--text-3); }
+.install .note .what { color: var(--ink); text-decoration: underline; text-decoration-color: #CFCFCF; text-underline-offset: 3px; white-space: nowrap; }
+.real video { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; border: 1px solid var(--line); border-radius: 14px; background: var(--soft); }
 
 footer { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; margin-top: 32px; padding: 28px 0 40px; border-top: 1px solid #F0F0F0; }
 footer .left { display: flex; align-items: center; gap: 16px; }
@@ -265,7 +267,7 @@ footer .links { display: flex; gap: 24px; font-size: 13px; color: var(--text-2);
     <code id="prompt">Install Verbally here and start it: <span>https://raw.githubusercontent.com/azdaev/verbally/main/INSTALL.md</span></code>
     <button class="btn" id="copy" aria-label="Copy the install prompt"><span class="st idle"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copy</span><span class="st ok"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Copied</span></button>
   </div>
-  <div class="note">It installs Verbally, starts it and opens your app with the bar in the corner.</div>
+  <div class="note">It installs Verbally, starts it and opens your app with the bar in the corner. <a class="what" href="https://github.com/azdaev/verbally/blob/main/INSTALL.md">What the agent does →</a></div>
   <div class="req mono"><b>Needs</b> a Vite + React app · Claude Code or Codex CLI, signed in · Chrome · macOS or Linux</div>
 </div>
 
@@ -286,6 +288,12 @@ footer .links { display: flex; gap: 24px; font-size: 13px; color: var(--text-2);
         <div class="txt"><h3><span class="mono">03</span>It lands in the file</h3><p>Claude Code or Codex edits the source, Vite reloads the page. ⌘Z (Ctrl+Z on Linux) undoes it.</p></div>
       </div>
     </div>
+  </section>
+
+  <section class="real">
+    <h2>Real speed, no cuts</h2>
+    <p class="after" style="margin:-16px 0 0">Six phrases turn an ugly todo list into a clean dark one. Each one is an edit in <span class="mono">src/App.tsx</span>.</p>
+    <video src="assets/demo.mp4" poster="assets/demo-poster.jpg" controls muted playsinline preload="none" width="1280" height="720" aria-label="A screen recording: six spoken phrases change a todo app in a minute"></video>
   </section>
 
   <section>
@@ -312,7 +320,7 @@ footer .links { display: flex; gap: 24px; font-size: 13px; color: var(--text-2);
         <div><div class="chips"><span>Default model</span><span>Any model</span></div><p>Runs read-only and returns the edit. Verbally writes it to the file, with undo.</p></div>
       </div>
     </div>
-    <div class="after">No API keys, no account. Switch the engine in Settings → Model.</div>
+    <div class="after">No API key and no Verbally account: only the CLI login you already have. Switch the engine in Settings → Model.</div>
   </section>
 
   <footer>
