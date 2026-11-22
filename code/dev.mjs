@@ -28,7 +28,7 @@ else {
     console.error('verbally: this app has Vite 7 or older and no @babel/core. Update to Vite 8, or run "npm install -D @babel/core".')
     process.exit(1)
   }
-  parse = (code, file) => babel.parseSync(code, { filename: file, babelrc: false, configFile: false, parserOpts: { plugins: ['jsx', 'typescript'] } })
+  parse = (code, file) => babel.parseSync(code, { filename: file, babelrc: false, configFile: false, parserOpts: { plugins: ['jsx', 'typescript', 'decorators-legacy'] } })
 }
 
 // mark writes data-vsrc="file:line" into HTML elements (lowercase tags) and into library parts like <Menu.Item>, not into other components.
@@ -68,7 +68,16 @@ const verbally = {
     const file = id.split('?')[0]
     if (!/\.[jt]sx$/.test(file) || file.includes('/node_modules/') || !file.startsWith(app + path.sep)) return
     // ponytail: no source map for the marks. Line numbers stay right; the columns of a marked line shift in the debugger.
-    return { code: mark(code, path.relative(app, file), file), map: null }
+    // A file that our parser cannot read (syntax that the app's own plugins handle) goes on without marks, not broken.
+    try { return { code: mark(code, path.relative(app, file), file), map: null } } catch { return }
+  },
+  // /_v reaches a server that writes files and runs Claude Code. Only this machine may use it, whatever Host it names.
+  configureServer(server) {
+    server.middlewares.use('/_v', (req, res, next) => {
+      if (/^(127\.|::1$|::ffff:127\.)/.test(req.socket.remoteAddress || '')) return next()
+      res.statusCode = 403
+      res.end('Verbally answers only to this machine.')
+    })
   },
   transformIndexHtml: () => [{ tag: 'script', attrs: { type: 'module', src: '/_v/overlay.js' }, injectTo: 'body' }],
 }
@@ -77,6 +86,8 @@ const server = await vite.createServer({
   root: app, // Vite finds the app's own config file there
   plugins: [verbally],
   server: {
+    // Loopback only, over the app's own `server.host`: the bar can write files, so other devices must not reach it.
+    host: '127.0.0.1',
     port: +(process.argv[3] || 5180), strictPort: true,
     open: !!process.env.VERBALLY_OPEN, // `verbally <app>` sets it: the browser opens when the app is ready
     proxy: { '/_v': { target: 'http://127.0.0.1:' + (process.env.VERBALLY_PORT || 8787), rewrite: p => p.slice(3) } },
