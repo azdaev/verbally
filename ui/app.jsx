@@ -118,7 +118,7 @@ function PickerPanel({ p }) {
   return <div id="pick" ref={panel} className={p.wide ? 'wide' : ''} role="region" aria-label="Versions">
     <header><b id="pickTitle" aria-live="polite">{p.title}</b><span>
       <Button id="pickKeep" variant="ghost" onClick={ui.cancelChoice}>Cancel</Button>
-      <Button id="pickUse" disabled={!p.chosen} onClick={ui.keepChoice}><Check />Use this</Button>
+      {p.chosen && <Button id="pickUse" onClick={ui.keepChoice}><Check />Use this</Button>}{/* a grey button with a ✓ before any choice read as broken */}
     </span></header>
     <div className="grid">{p.items.map((item, i) => <button key={i} type="button" aria-label={`Version ${i + 1}`} aria-pressed={p.selected === i} className={p.selected === i ? 'now' : ''} onClick={() => ui.choose(i)}>
       <Preview node={item.thumb} /><i>{i + 1}</i>

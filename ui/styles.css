@@ -224,7 +224,6 @@
 #pick header button:hover { background: var(--vb-fill); color: var(--vb-text); }
 #pick header span { display: flex; gap: 6px; }
 #pickUse { padding: 7px 12px !important; border-radius: var(--vb-radius-full) !important; background: var(--vb-text) !important; color: #fff !important; transition: opacity .15s, scale .2s var(--vb-pop) !important; }
-#pickUse:disabled { opacity: .25; pointer-events: none; }
 #pickUse:active { scale: .95; }
 #pick .grid { display: grid; grid-template-columns: repeat(5, 124px); gap: 8px; }
 #pick .grid button { position: relative; height: 92px; padding: 0; border: 0; border-radius: var(--vb-radius-md); overflow: hidden; background: var(--vb-sunken); cursor: pointer;
@@ -297,6 +296,7 @@
 #pick header svg { width: 14px; height: 14px; }
 #pick button:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
 #tasks .ph:focus-within .x { opacity: 1; }
+@media (hover: none) { #tasks .ph .x { opacity: 1; } } /* a touch screen has no hover to show the ×: it stays visible */
 @media (max-width: 560px) { #menu .settings-tabs { flex-direction: row; } #menu nav button { width: auto; } #tasks .ph { max-width: calc(100vw - 44px); } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0s !important; transition-duration: 0s !important; } }
 /* A mark: the mouse stopped here with ⌥ held. The number is the one that the speech gets at that moment. It sits on the end of the ink. */

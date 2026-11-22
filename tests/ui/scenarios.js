@@ -90,7 +90,7 @@ run.onclick = async () => {
       say('two versions')
       await waitFor(() => UI.getSnapshot().picker?.items.length === 2, 'versions')
       UI.root.querySelectorAll('#pick .grid button')[1].click()
-      await waitFor(() => !$('pickUse').disabled, 'enabled use button')
+      await waitFor(() => $('pickUse'), 'use button after a choice')
       await clickUI('pickUse')
       await waitFor(() => !UI.getSnapshot().picker, 'picker close')
       await waitFor(async () => CODE ? !pickOn : !picking, 'finish writes')
