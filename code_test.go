@@ -11,7 +11,7 @@ import (
 
 // Undo, redo, and a new change that drops the redo step.
 func TestUndoRedo(t *testing.T) {
-	root := t.TempDir()
+	root, _ := filepath.EvalSymlinks(t.TempDir()) // a real path, as folder() gives it (macOS has /var → /private/var)
 	f := filepath.Join(root, "f.txt")
 	os.WriteFile(f, []byte("A"), 0o644)
 	codeRoutes(root)
@@ -44,6 +44,33 @@ func TestUndoRedo(t *testing.T) {
 	if post("/api/file?path=/etc/hosts", "X") != http.StatusNotFound {
 		t.Fatal("a file outside the app must not be written")
 	}
+	// Nor a file outside behind a link inside the app, nor git's files or packages inside it.
+	outside := filepath.Join(t.TempDir(), "o.txt")
+	os.WriteFile(outside, []byte("O"), 0o644)
+	os.Symlink(outside, filepath.Join(root, "link.txt"))
+	os.MkdirAll(filepath.Join(root, ".git"), 0o755)
+	os.WriteFile(filepath.Join(root, ".git", "config"), []byte("G"), 0o644)
+	for _, p := range []string{"link.txt", ".git/config"} {
+		if post("/api/file?path="+p, "X") != http.StatusNotFound {
+			t.Fatalf("%s must not be written", p)
+		}
+	}
+	if b, _ := os.ReadFile(outside); string(b) != "O" {
+		t.Fatal("the file behind the link changed")
+	}
+	// Undo after the user changed the file in an editor: the editor's text stays, and the next undo goes on.
+	post("/api/file?path=f.txt", "G")
+	post("/api/file?path=f.txt", "H")
+	os.WriteFile(f, []byte("editor"), 0o644)
+	if post("/api/undo", "") != http.StatusConflict {
+		t.Fatal("undo must not write over a change from an editor")
+	}
+	has("editor")
+	if post("/api/undo", "") != http.StatusConflict { // the step before it left G, not "editor"
+		t.Fatal("an older step must not write over it either")
+	}
+	has("editor")
+	os.WriteFile(f, []byte("A"), 0o644)
 
 	// The picker: a version on the screen is a preview (?noundo=1), not a step to undo.
 	set := func(body string) { os.WriteFile(f, []byte(body), 0o644) }

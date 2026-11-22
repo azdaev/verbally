@@ -14,7 +14,35 @@ import (
 // Only files that exist inside the root can be read or written. Undo puts back the contents from before each write.
 // Redo puts back what the last undo took away. A new change drops the redo steps, like a text editor.
 // ponytail: one undo list for all files, kept in memory; git holds everything else.
-type step struct{ file, body string }
+// A step also keeps the text that the change left (wrote): when the file holds something else now, an editor or another
+// program changed it since, and taking the step would throw that work away.
+type step struct{ file, body, wrote string }
+
+// save writes a source file in one step: a full disk leaves the old text, and the dev server never reads half a file.
+func save(full string, body []byte) error {
+	info, err := os.Stat(full)
+	if err != nil {
+		return err
+	}
+	f, err := os.CreateTemp(filepath.Dir(full), ".verbally-*")
+	if err != nil {
+		return err
+	}
+	_, err = f.Write(body)
+	if cerr := f.Close(); err == nil {
+		err = cerr
+	}
+	if err == nil {
+		err = os.Chmod(f.Name(), info.Mode().Perm())
+	}
+	if err == nil {
+		err = os.Rename(f.Name(), full)
+	}
+	if err != nil {
+		os.Remove(f.Name())
+	}
+	return err
+}
 
 // A preview is a version that the picker shows on the live app (?noundo=1). It is no step to undo.
 // The server keeps the text of the file from before its first preview (base) and the text of the last one (shown):
@@ -41,6 +69,19 @@ func codeRoutes(root string) {
 			name = rel
 		}
 		full := filepath.Join(root, filepath.Clean("/"+name)) // Clean of an absolute path drops every ".."
+		// The real path, past symbolic links, must stay inside the app (root is a real path, see folder()).
+		// Hidden files and node_modules are out too: .git/config, .env and packages are no source, and a reply
+		// from a model that read a hostile file must not write there.
+		full, err := filepath.EvalSymlinks(full)
+		rel, rerr := filepath.Rel(root, full)
+		if err != nil || rerr != nil {
+			return full, false
+		}
+		for _, part := range strings.Split(rel, string(filepath.Separator)) { // also ".." of a path outside, and "." of root
+			if strings.HasPrefix(part, ".") || part == "node_modules" {
+				return full, false
+			}
+		}
 		info, err := os.Stat(full)
 		return full, err == nil && info.Mode().IsRegular()
 	}
@@ -95,12 +136,12 @@ func codeRoutes(root string) {
 				delete(codeUndo.held, full)
 			}
 			if text != old {
-				codeUndo.list = append(codeUndo.list, step{full, old})
+				codeUndo.list = append(codeUndo.list, step{full, old, text})
 				codeUndo.redo = nil
 			}
 		}
 		if text != string(disk) { // an equal text is not written: the dev server would draw the page once more
-			if err := os.WriteFile(full, body, 0o644); err != nil {
+			if err := save(full, body); err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
@@ -113,7 +154,7 @@ func codeRoutes(root string) {
 		defer codeUndo.Unlock()
 		var names []string
 		for full, p := range codeUndo.held {
-			if now, err := os.ReadFile(full); err == nil && string(now) == p.shown && os.WriteFile(full, []byte(p.base), 0o644) == nil {
+			if now, err := os.ReadFile(full); err == nil && string(now) == p.shown && save(full, []byte(p.base)) == nil {
 				rel, _ := filepath.Rel(root, full)
 				names = append(names, rel)
 			}
@@ -139,11 +180,23 @@ func codeRoutes(root string) {
 			return
 		}
 		last := (*from)[n-1]
-		*from = (*from)[:n-1]
-		now, _ := os.ReadFile(last.file)
-		*to = append(*to, step{last.file, string(now)})
-		os.WriteFile(last.file, []byte(last.body), 0o644)
 		rel, _ := filepath.Rel(root, last.file)
+		now, err := os.ReadFile(last.file)
+		if err != nil {
+			http.Error(w, rel+": "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if string(now) != last.wrote { // the step is dropped, or every later ⌘Z would stop on it
+			*from = (*from)[:n-1]
+			http.Error(w, rel+" changed outside Verbally after this change, so it stays as it is.", http.StatusConflict)
+			return
+		}
+		if err := save(last.file, []byte(last.body)); err != nil {
+			http.Error(w, rel+": "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		*from = (*from)[:n-1]
+		*to = append(*to, step{last.file, last.wrote, last.body})
 		logEvent(map[string]any{"src": "server", "event": "code_" + what, "file": rel})
 		io.WriteString(w, rel)
 	})
