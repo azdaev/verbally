@@ -158,7 +158,8 @@ setupReady.then(d => {
   leave(c, 9000)
 }).catch(() => {})
 addEventListener('paste', e => {
-  if (!dictation || settingsOpen() || UI.isUIEvent(e)) return
+  // A bar button keeps the focus after a click, so the dictation app's paste can land on the bar: that is speech too.
+  if (!dictation || settingsOpen()) return
   // A paste into a text field of the app is the app's own business.
   if (isTextInput(e)) return
   const text = (e.clipboardData?.getData('text/plain') || '').trim()
@@ -274,7 +275,7 @@ async function soniox() {
   const ws = new WebSocket('wss://stt-rt.soniox.com/transcribe-websocket')
   // The phrase ends only when the user lets the key go (or switches the microphone off): a pause to think never sends it.
   let words = [], live = '' // final words of the phrase with the time of each; the words that can still change
-  let closed = false
+  let closed = false, ended = false
   const close = () => { // the end of the audio and the 2 s timer both come here: the phrase goes once
     if (closed) return
     closed = true
@@ -285,7 +286,8 @@ async function soniox() {
   }
   const stop = () => {
     if (rec.state === 'inactive') return close()
-    rec.onstop = () => ws.readyState === 1 ? ws.send('') : close() // an empty frame tells Soniox that the audio is complete
+    // An empty frame tells Soniox that the audio is complete. A socket that still connects gets the audio and the end in onopen.
+    rec.onstop = () => ws.readyState === 1 ? ws.send('') : ws.readyState === 0 ? ended = true : close()
     rec.stop()
     setTimeout(close, 2000) // Soniox did not answer: use the words that came
   }
@@ -295,6 +297,7 @@ async function soniox() {
       context: { terms: ['hero section', 'lorem ipsum', ...(q.get('terms') || '').split(',').filter(Boolean)] } }))
     for (const c of chunks) ws.send(c) // the audio from before the socket was open
     rec.ondataavailable = e => ws.readyState === 1 && ws.send(e.data)
+    if (ended) ws.send('') // the key went up before the socket was open
   }
   ws.onclose = e => e.code !== 1000 && e.code !== 1005 && tele({ event: 'mic', closed: e.code, reason: e.reason })
   ws.onmessage = e => {
@@ -341,8 +344,9 @@ function webSpeech() {
   rec.lang = LANG
   rec.continuous = true
   rec.interimResults = true
-  let done = '', partial = '' // the phrase goes out at stop, like with Soniox
+  let done = '', partial = '', stopped = false // the phrase goes out at stop, like with Soniox
   rec.onresult = e => {
+    if (stopped) return // results that come after stop belong to a phrase that went out already
     partial = ''
     for (let i = e.resultIndex; i < e.results.length; i++) {
       if (e.results[i].isFinal) done += e.results[i][0].transcript + ' '
@@ -351,9 +355,10 @@ function webSpeech() {
     hear(done + partial, false)
   }
   rec.onerror = e => { if (e.error !== 'no-speech') note('Microphone: ' + e.error) }
-  rec.onend = () => on && rec.start() // Chrome stops after silence
+  // Chrome stops after silence. A stopped recognizer stays stopped, even when the next phrase has switched `on` back on.
+  rec.onend = () => on && !stopped && rec.start()
   rec.start()
-  return () => { on = false; rec.stop(); if ((done + partial).trim()) hear(done + partial, true); done = partial = '' }
+  return () => { on = false; stopped = true; rec.stop(); if ((done + partial).trim()) hear(done + partial, true); done = partial = '' }
 }
 
 UI.actions.mic = toggleMic
@@ -362,8 +367,11 @@ UI.actions.redo = () => travel(1)
 UI.actions.cancel = task => cancel(task)
 // Clear needs no question: it is one more step of the history, so undo brings the page back.
 UI.actions.clear = () => smooth(() => { paint([]); save() })
-// ⌘Z in a text field is the field's own undo, not the page's.
-addEventListener('keydown', e => { if (!settingsOpen() && e.metaKey && e.code === 'KeyZ' && !isTextInput(e)) { e.preventDefault(); travel(e.shiftKey ? 1 : -1) } })
+// ⌘Z (Ctrl+Z off a Mac) in a text field is the field's own undo, not the page's.
+// The letter counts, so AZERTY and Dvorak work; a layout with no Latin letters (Russian) falls back to the key's place.
+const isZ = e => e.key.toLowerCase() === 'z' || e.code === 'KeyZ' && !/^[a-z]$/i.test(e.key)
+const mod = e => e.metaKey || e.ctrlKey && !/Mac/.test(navigator.platform)
+addEventListener('keydown', e => { if (!settingsOpen() && mod(e) && isZ(e) && !isTextInput(e)) { e.preventDefault(); travel(e.shiftKey ? 1 : -1) } })
 // The model cannot check an image address. A broken image gets a photo from the local photo store, found by its alt text.
 $('canvas')?.addEventListener('error', e => {
   const img = e.target
@@ -375,7 +383,8 @@ $('canvas')?.addEventListener('error', e => {
 // Space: hold to talk (push to talk), or tap to switch the microphone on and off.
 let downAt = 0, wasOn = false
 addEventListener('keydown', e => {
-  if (e.code !== 'Space' || e.target !== document.body || settingsOpen()) return
+  // The bar counts as the page: its buttons keep the focus after a click, and Space must not press that button again.
+  if (e.code !== 'Space' || e.target !== document.body && !(UI.isUIEvent(e) && !isTextInput(e)) || settingsOpen()) return
   if (dictation) { if (e.altKey) e.preventDefault(); return } // a dictation key like ⌥ Space must not scroll the page
   e.preventDefault()
   if (e.repeat) return
@@ -419,7 +428,12 @@ const cmdUp = () => {
   cmdTalk = false
 }
 addEventListener('keyup', e => { if (e.key === 'Alt') { cmdUp(); if (e.code === talk.code) hearsOff() } })
-addEventListener('blur', () => { cmdUp(); hearsOff() }) // switching windows leaves the window and the key-up never arrives
+// Switching windows leaves the window and the key-up never arrives. A held Space ends too, or the microphone records the other app.
+addEventListener('blur', () => {
+  cmdUp()
+  hearsOff()
+  if (downAt) { downAt = 0; if (on && !wasOn) toggleMic() }
+})
 if (!CODE) $('canvas').onclick = e => { const sec = e.target.closest('#canvas > div'); if (sec) select(sec) }
 // Test hook: ?vclick=css selector clicks it first (opens a menu); ?vmove=x,y;x,y moves the mouse with ⌥ held and stops at each point for 0.5 s, so marks ① ② appear without hands.
 if (q.get('vmove')) setTimeout(async () => {
