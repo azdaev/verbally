@@ -8,7 +8,7 @@
 
 You look at a button and think "bigger, and not that blue". Now you just say it.
 
-Hold `⌥`, point, talk. A few seconds later the change is in your source file. No prompt box. No "the third card in the second row, no, the other one".
+Hold `⌥` (`Alt` on Linux), point, talk. A few seconds later the change is in your source file. No prompt box. No "the third card in the second row, no, the other one".
 
 ## Get started
 
@@ -33,7 +33,7 @@ No API keys. If a dictation app runs already (Hex, Handy, Wispr Flow), it does t
 - "make this heading bigger"
 - "this ① must look like that ②" (stop the mouse for a moment to drop a mark)
 - "show me three versions of this card"
-- `⌘Z`, when it gets you wrong.
+- `⌘Z` (`Ctrl+Z` on Linux), when it gets you wrong.
 
 ## Good to know
 

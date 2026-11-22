@@ -31,10 +31,10 @@ verbally path/to/your/app
 
 Verbally starts the app's own Vite dev server on port 5180, with the bar on top. Your `vite.config` stays as it is.
 
-- **Talk:** hold `⌥ Option` and speak. Release the key when you are done.
+- **Talk:** hold `⌥ Option` (`Alt` on Linux) and speak. Release the key when you are done.
 - **Point:** move the mouse while you hold `⌥ Option`. Stop on a place for a moment to set a mark ①. Say "make this ① like that ②".
 - **Many versions:** say "show me three versions of this card", then pick one.
-- **Undo and redo:** `⌘Z` and `⇧⌘Z`, or the buttons on the bar. Undo puts the file back.
+- **Undo and redo:** `⌘Z` and `⇧⌘Z` (`Ctrl+Z` and `Shift+Ctrl+Z` on Linux), or the buttons on the bar. Undo puts the file back.
 - **Cancel:** the `×` on a task card.
 
 Code mode works with **Vite + React** today. See [LIMITATIONS.md](../LIMITATIONS.md) for other stacks.

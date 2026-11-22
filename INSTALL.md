@@ -61,9 +61,9 @@ Do not change the app's files, config or `package.json`. Verbally needs no chang
 Give the user these lines:
 
 - The app is open at `http://localhost:5180` with a small bar in the corner.
-- With a dictation app (step 3): put the mouse on an element, hold the key of that app (the `dictation` line of `verbally doctor` names it for Hex) and say a change, for example "make this heading bigger". Hold `⌥ Option` and move the mouse to point at several elements.
-- Without one: hold `⌥ Option` and say the change. Chrome asks for the microphone once: allow it. Move the mouse while you hold `⌥ Option` to point at an element.
-- `⌘Z` puts a change back.
+- With a dictation app (step 3): put the mouse on an element, hold the key of that app (the `dictation` line of `verbally doctor` names it for Hex) and say a change, for example "make this heading bigger". Hold `⌥ Option` (`Alt` on Linux) and move the mouse to point at several elements.
+- Without one: hold `⌥ Option` (`Alt` on Linux) and say the change. Chrome asks for the microphone once: allow it. Move the mouse while you hold `⌥ Option` to point at an element.
+- `⌘Z` (`Ctrl+Z` on Linux) puts a change back.
 - Verbally writes into the source files. Commit your work first.
 - Claude Code runs with all tools allowed. Codex CLI runs read-only. Details: `docs/DETAILS.md` in the repository.
 
