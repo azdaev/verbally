@@ -186,6 +186,13 @@ h2 { margin: 0; font-weight: 600; font-size: 28px; line-height: 34px; letter-spa
 .install .note .what { color: var(--ink); text-decoration: underline; text-decoration-color: #CFCFCF; text-underline-offset: 3px; white-space: nowrap; }
 .real video { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; border: 1px solid var(--line); border-radius: 14px; background: var(--soft); }
 
+.faq { display: flex; flex-direction: column; border-top: 1px solid #F0F0F0; }
+.faq details { border-bottom: 1px solid #F0F0F0; }
+.faq summary { cursor: pointer; list-style: none; display: flex; justify-content: space-between; gap: 16px; padding: 18px 0; font-weight: 500; font-size: 17px; }
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::after { content: '+'; color: #A3A3A3; font-weight: 400; }
+.faq details[open] summary::after { content: '−'; }
+.faq p { margin: -6px 0 18px; max-width: 680px; color: #525252; line-height: 1.6; }
 footer { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; margin-top: 32px; padding: 28px 0 40px; border-top: 1px solid #F0F0F0; }
 footer .left { display: flex; align-items: center; gap: 16px; }
 footer .logo { font-size: 17px; }
@@ -346,6 +353,18 @@ footer .links { display: flex; gap: 24px; font-size: 13px; color: var(--text-2);
       </div>
     </div>
     <div class="after">No API key and no Verbally account: only the CLI login you already have. Switch the engine in Settings → Model.</div>
+  </section>
+
+  <section id="faq">
+    <h2>Questions</h2>
+    <div class="faq">
+      <details><summary>What does it cost?</summary><p>Nothing on top of what you have. Verbally is free and MIT licensed; the edits run on your own Claude Code or Codex CLI plan.</p></details>
+      <details><summary>What leaves my machine?</summary><p>The files of the element you point at, and your phrase, go to the model of your CLI, as with any Claude Code or Codex prompt. Speech stays in your dictation app, or goes to Chrome's recognizer if you use the built-in mic. Verbally has no cloud service and no account; its log stays in <span class="mono">~/.verbally</span>.</p></details>
+      <details><summary>Does it touch git?</summary><p>No. It edits the source files and keeps its own undo (⌘Z, or Ctrl+Z on Linux). Commit before a session and review the diff after, as you would with any agent.</p></details>
+      <details><summary>Which stacks work?</summary><p>A Vite + React app. Next.js, Vue and Svelte are not supported yet: pointing needs the source marks that Verbally adds through Vite.</p></details>
+      <details><summary>Do I change my project?</summary><p>No. Verbally starts your app's own Vite dev server, with your config, at its usual address and with the bar on top. Your <span class="mono">vite.config</span> and <span class="mono">package.json</span> stay as they are.</p></details>
+      <details><summary>What if a change breaks the page?</summary><p>Undo puts the file back. When Vite shows a build error after an edit, the bar offers “Fix it”, which sends the error back to the model.</p></details>
+    </div>
   </section>
 
   <footer>
