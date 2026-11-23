@@ -133,3 +133,21 @@ func TestFolderRealPath(t *testing.T) {
 		t.Fatalf("folder(%q) = %q, want %q", link, got, want)
 	}
 }
+
+// `verbally` alone starts code mode only in a Vite + React app: a Vite app without React, or React without Vite, is not one.
+func TestViteApp(t *testing.T) {
+	dir := t.TempDir()
+	write := func(name, body string) { os.WriteFile(filepath.Join(dir, name), []byte(body), 0o644) }
+	write("package.json", `{"dependencies":{"react":"^19"}}`)
+	if viteApp(dir) {
+		t.Error("React without a Vite config counted as a Vite app")
+	}
+	write("vite.config.ts", "export default {}")
+	if !viteApp(dir) {
+		t.Error("vite.config.ts with React did not count")
+	}
+	write("package.json", `{"dependencies":{"vue":"^3","react-icons":"^5"}}`)
+	if viteApp(dir) {
+		t.Error("a Vue app with react-icons counted as React")
+	}
+}

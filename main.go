@@ -19,7 +19,7 @@
 //
 // Run:
 //
-//	verbally                      a new page, made by voice
+//	verbally                      inside a Vite + React app: that app, as below; elsewhere a new page, made by voice
 //	verbally <app folder> [port]  code mode: the Vite + React app in that folder, with the bar on top
 //	verbally doctor               what this machine has and what it lacks
 //	verbally update               get the newest release
@@ -65,7 +65,7 @@ var version = "dev" // a release sets it: -ldflags "-X main.version=v0.1.0"
 
 const usage = `Verbally: change a web page with your voice.
 
-  verbally                      a new page, made by voice
+  verbally                      inside a Vite + React app: that app, as below; elsewhere a new page, made by voice
   verbally <app folder> [port]  code mode: the Vite + React app in that folder, with the bar on top,
                                 at the app's own address (its port, else 5173)
   verbally doctor               what this machine has and what it lacks
@@ -225,6 +225,16 @@ func folder(name string) string {
 	return full
 }
 
+// viteApp tells whether a folder holds a Vite + React app: a Vite config and React in package.json.
+func viteApp(dir string) bool {
+	pkg, err := os.ReadFile(filepath.Join(dir, "package.json"))
+	if err != nil || !strings.Contains(string(pkg), `"react"`) {
+		return false
+	}
+	configs, _ := filepath.Glob(filepath.Join(dir, "vite.config.*"))
+	return len(configs) > 0
+}
+
 func main() {
 	arg, port := "", ""
 	if len(os.Args) > 1 {
@@ -244,6 +254,10 @@ func main() {
 	case "help", "--help", "-h":
 		fmt.Print(usage)
 		return
+	}
+	// `verbally` alone inside a Vite + React app means that app: the start is one word.
+	if arg == "" && os.Getenv("VERBALLY_CODE") == "" && os.Getenv("VERBALLY_SITE") == "" && viteApp(".") {
+		arg = "."
 	}
 	// `verbally <app>` starts the app's dev server too. VERBALLY_CODE=<app> only opens the files: start code/dev.mjs by hand.
 	app, site := folder(arg), folder(os.Getenv("VERBALLY_SITE"))

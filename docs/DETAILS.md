@@ -29,6 +29,8 @@ You need:
 verbally path/to/your/app
 ```
 
+Inside the app's folder, `verbally` alone does the same: a folder with a `vite.config` and React in `package.json` counts as the app.
+
 Verbally starts the app's own Vite dev server at the app's usual address (the port of its `vite.config`, else 5173), with the bar on top, so OAuth callbacks, CORS lists and cookies work as usual. Stop your own dev server of the app first, or give Verbally another port: `verbally <app folder> 5180`. Your `vite.config` stays as it is; Verbally listens on `localhost` only, whatever `server.host` says.
 
 - **Talk:** hold `⌥ Option` (`Alt` on Linux) and speak. Release the key when you are done.
