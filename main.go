@@ -201,6 +201,8 @@ func doctor() int {
 	}
 	if bad == 0 {
 		fmt.Println("\nReady. Run: verbally <app folder>")
+		// The first success needs a phrase as much as a key: these work on any app, with nothing pointed at.
+		fmt.Println("Then point at the page, hold the key and say, or press / and type:\n  make the main heading bigger\n  show three versions of the header\n  make all buttons rounder")
 	}
 	return bad
 }
