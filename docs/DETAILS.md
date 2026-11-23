@@ -37,6 +37,7 @@ Verbally starts the app's own Vite dev server at the app's usual address (the po
 - **No pointer:** with no element pointed at or under the mouse, the change goes to the element in the middle of the screen, or to the app's outer component when nothing of the app is there. The first-run card has three example phrases; a click sends one this way.
 - **Many versions:** say "show me three versions of this card", then pick one.
 - **Undo and redo:** `⌘Z` and `⇧⌘Z` (`Ctrl+Z` and `Shift+Ctrl+Z` on Linux), or the buttons on the bar. Undo puts the file back.
+- **A broken build:** when Vite shows its error screen within 2 minutes of a change, a card names the error. "Fix it" closes the screen and sends the error and the broken file to the model, like a spoken phrase.
 - **Open the change:** a done card names each changed file at the line of the edit. A click opens it there in your editor through Vite's `/__open-in-editor` (it finds a running VS Code, Cursor, WebStorm and others; set `LAUNCH_EDITOR` to pick one).
 - **Cancel:** the `×` on a task card.
 

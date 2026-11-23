@@ -12,7 +12,8 @@ Tested on a new Vite 8 + React 19 app and on a larger Vite 8 + React 18 app with
   Open: put the bar on the dev server that the user already runs: a plugin line in the app's config, or a script tag.
 - **Vite 7 and older need `@babel/core` in the app.** Vite 8 has a parser of its own. Both paths give the same marks.
 - **Shared components.** A mark points to the file that writes the HTML element. A `<Button>` used on 20 pages leads to `Button.tsx`. The model also gets the next file up and is told to prefer it for a change of one place.
-- **No check of the result.** A change that breaks the build shows as Vite's error screen. Undo (`⌘Z`) puts the file back.
+- **No check of the result.** A change that breaks the build shows as Vite's error screen. Undo (`⌘Z`) puts the file back. Done: within 2 minutes of an edit, a card names the error, and "Fix it" sends it with the broken file to the model.
+  Open: send it back by itself, once, without a click.
   Open: read Vite's error and retry once with it.
 - **State is lost on reload.** A change inside an open dialog may close it.
 - **A reload closes the picker.** When the dev server reloads the whole page for a version (a file that Fast Refresh cannot update), the picker closes and the files go back as they were before it.

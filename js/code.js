@@ -42,7 +42,7 @@ function apply(text, blocks) {
 }
 check(apply('a b c', [['b', 'x']]) === 'a x c' && apply('b b', [['b', 'x']]) === '', 'apply')
 
-function hear(text, final) {
+function hear(text, final, also = []) {
   const cmd = text.replace(/^[\s.,;:!?-]+/, '').trim()
   if (point) spoke = point
   UI.update({ live: final ? '' : cmd })
@@ -51,7 +51,7 @@ function hear(text, final) {
   spoke = null
   const el = chip(cmd)
   const t0 = performance.now()
-  change(cmd, pointed, el).then(n => {
+  change(cmd, pointed, el, also).then(n => {
     if (el.cancelled) return
     el.update({ kind: n ? 'done' : 'skip' })
     leave(el, el.files?.length ? 5000 : n ? 1400 : 900) // a card with files to open stays long enough to click one
@@ -65,7 +65,7 @@ function hear(text, final) {
 }
 
 // change runs one phrase: the files, the model, the edit. It returns the number of changed files.
-async function change(cmd, pointed, el) {
+async function change(cmd, pointed, el, also = []) {
   await codeReady
   const t = await fetch(VB + '/api/triage', { method: 'POST', body: JSON.stringify({ text: cmd }) }).then(r => r.json()).catch(() => ({}))
   if (t.filler) return 0
@@ -74,7 +74,7 @@ async function change(cmd, pointed, el) {
   const mid = document.elementFromPoint(innerWidth / 2, innerHeight / 2)
   const target = pointed?.els.at(-1) || hover || (mid?.closest('[data-vsrc]') ? mid : document.querySelector('[data-vsrc]') || mid)
   // The files of the pointed element, then the file of each mark: "make this ① like that ②" can span two components.
-  const paths = [...new Set([...files(target), ...(pointed?.marks || []).flatMap(m => files(m.el).slice(0, 1))])].slice(0, 4)
+  const paths = [...new Set([...also, ...files(target), ...(pointed?.marks || []).flatMap(m => files(m.el).slice(0, 1))])].slice(0, 4)
   if (!paths.length) throw new Error('No source code here. Hold ⌥ Option and point at the app.')
   for (const e of pointed?.els || [target]) e.classList.add('glow')
   const ac = new AbortController()
@@ -114,6 +114,7 @@ async function change(cmd, pointed, el) {
       if (!paths.includes(done.bad)) paths.push(done.bad)
       more = `\n\nYour edit blocks did not fit ${done.bad}: an old text was not exact, or it occurs more than once, or the file changed. "Files" above holds the files as they are now. Write the edit blocks again.`
     }
+    lastEdit = Date.now()
     said = [...said, `- "${cmd}" → ${[...byFile.keys()].join(', ')}: ${blocks.map(b => b[3].trim().slice(0, 120).replace(/\s+/g, ' ')).join(' | ')}`].slice(-5)
     try { sessionStorage.setItem('verbally.said', JSON.stringify(said)) } catch {}
     // One long phrase can hold several requests: the model names each task, and each one gets its own card.
@@ -266,6 +267,20 @@ UI.actions.open = f => fetch('/__open-in-editor?file=' + encodeURIComponent((roo
 // Start the engine now, so the first phrase does not wait for it.
 codeReady.then(() => { if (ENGINE === 'claude') return fetch(engineURL(), { method: 'POST', body: JSON.stringify({ model: MODEL, effort: EFFORT, messages: [{ content: system }] }) }) }).catch(() => {})
 // Test hooks: ?vsay=phrase&vpoint=css selector&vwait=ms says a phrase while pointing at that element, without hands.
+// A change that breaks the build shows Vite's error screen. Soon after an edit of ours the card says so,
+// and "Fix it" sends the error with the broken file to the model, as if the user had said it.
+let lastEdit = 0, shown = null
+new MutationObserver(() => {
+  const o = document.querySelector('vite-error-overlay')
+  if (!o || o === shown || Date.now() - lastEdit > 120000) return
+  shown = o
+  const text = o.shadowRoot?.querySelector('.message-body')?.textContent.trim().slice(0, 600) || 'The build failed'
+  const file = inApp((o.shadowRoot?.querySelector('.file')?.textContent || '').replace(/:\d+(:\d+)?$/, ''))
+  const c = chip(text, 'err')
+  c.update({ title: 'The last change broke the build', fix: () => { c.remove(); o.remove(); hear('Fix this build error: ' + text, true, file && !file.startsWith('/') && !file.includes('node_modules') ? [file] : []) } })
+  leave(c, 60000)
+}).observe(document.body, { childList: true })
+
 if (q.get('vsay')) setTimeout(() => {
   const t = q.get('vpoint') && document.querySelector(q.get('vpoint'))
   if (t) point = { sec: document.body, els: [t], text: t.outerHTML.slice(0, 300) }
