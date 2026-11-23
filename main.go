@@ -66,7 +66,8 @@ var version = "dev" // a release sets it: -ldflags "-X main.version=v0.1.0"
 const usage = `Verbally: change a web page with your voice.
 
   verbally                      a new page, made by voice
-  verbally <app folder> [port]  code mode: the Vite + React app in that folder, with the bar on top (port 5180)
+  verbally <app folder> [port]  code mode: the Vite + React app in that folder, with the bar on top,
+                                at the app's own address (its port, else 5173)
   verbally doctor               what this machine has and what it lacks
   verbally update               get the newest release
   verbally version
@@ -223,7 +224,7 @@ func folder(name string) string {
 }
 
 func main() {
-	arg, port := "", "5180"
+	arg, port := "", ""
 	if len(os.Args) > 1 {
 		arg = os.Args[1]
 	}
@@ -335,7 +336,7 @@ func main() {
 		return
 	}
 	// Code mode: the app's own dev server, with the marks and the bar (code/dev.mjs). It stops with this program.
-	node := exec.CommandContext(ctx, "node", script, app, port)
+	node := exec.CommandContext(ctx, "node", script, app, port) // port "": the app's own
 	node.Stdout, node.Stderr = os.Stdout, os.Stderr
 	node.Env = append(os.Environ(), "VERBALLY_PORT="+serverPort())
 	if !dev {

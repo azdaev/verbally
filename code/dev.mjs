@@ -1,5 +1,5 @@
 // Runs an app's own Vite dev server with Verbally on top, without a change to the app's config.
-// Usage: node code/dev.mjs <app folder> [port]      (MOCK=1 and other env pass through to the app's config)
+// Usage: node code/dev.mjs <app folder> [port]      (no port: the app's own, from its config, else Vite's 5173)      (MOCK=1 and other env pass through to the app's config)
 // `verbally <app folder>` starts this script by itself.
 // Two things are added:
 //   - every JSX element in the app gets data-vsrc="src/file.tsx:line", so pointing at the page finds the source;
@@ -87,11 +87,18 @@ const server = await vite.createServer({
   plugins: [verbally],
   server: {
     // Loopback only, over the app's own `server.host`: the bar can write files, so other devices must not reach it.
-    host: '127.0.0.1',
-    port: +(process.argv[3] || 5180), strictPort: true,
+    // `localhost`, not 127.0.0.1: the app keeps the address it always has, with its cookies, OAuth callbacks and CORS lists.
+    host: 'localhost',
+    // The app's own port, so the same address works; strict, so a second copy never lands on another port unnoticed.
+    port: process.argv[3] ? +process.argv[3] : undefined, strictPort: true,
     open: !!process.env.VERBALLY_OPEN, // `verbally <app>` sets it: the browser opens when the app is ready
     proxy: { '/_v': { target: 'http://127.0.0.1:' + (process.env.VERBALLY_PORT || 8787), rewrite: p => p.slice(3) } },
   },
 })
-await server.listen()
+try { await server.listen() } catch (e) {
+  if (e.code !== 'EADDRINUSE' && !/already in use/.test(e.message)) throw e
+  const port = server.config.server.port
+  console.error(`verbally: port ${port} is taken. Is your own dev server running? Stop it: Verbally runs the app at the same address.\nOr give Verbally another port: verbally ${path.basename(app)} 5180`)
+  process.exit(1)
+}
 server.printUrls()

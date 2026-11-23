@@ -29,7 +29,7 @@ You need:
 verbally path/to/your/app
 ```
 
-Verbally starts the app's own Vite dev server on port 5180, with the bar on top. Your `vite.config` stays as it is.
+Verbally starts the app's own Vite dev server at the app's usual address (the port of its `vite.config`, else 5173), with the bar on top, so OAuth callbacks, CORS lists and cookies work as usual. Stop your own dev server of the app first, or give Verbally another port: `verbally <app folder> 5180`. Your `vite.config` stays as it is; Verbally listens on `localhost` only, whatever `server.host` says.
 
 - **Talk:** hold `⌥ Option` (`Alt` on Linux) and speak. Release the key when you are done.
 - **Point:** move the mouse while you hold `⌥ Option`. Stop on a place for a moment to set a mark ①. Say "make this ① like that ②".

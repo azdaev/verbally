@@ -49,10 +49,10 @@ Run this in the background, and keep it running:
 verbally <app folder>
 ```
 
-- Ports 8787 and 5180 must be free. If a Verbally runs already for another project, start this one on other ports: `VERBALLY_PORT=8788 verbally <app folder> 5190`.
-- Verbally starts the app's own Vite dev server on that port, with the app's config. The user's usual dev server can run at the same time.
+- Verbally starts the app's own Vite dev server, with the app's config, at the app's usual address: the port of its `vite.config`, else 5173. So the user's own dev server of this app must be stopped first; if it runs, Verbally says that the port is taken. To keep both, give Verbally another port: `verbally <app folder> 5180`.
+- Port 8787 must be free too. If a Verbally runs already for another project, start this one on other ports: `VERBALLY_PORT=8788 verbally <app folder> 5190`.
 - If the app needs environment variables or a backend to show its pages, start it the same way as the user's `dev` script does.
-- The browser opens `http://localhost:5180` by itself. Check the output: it must show the `Local:` address and no error.
+- The browser opens the app by itself. Check the output: it must show the `Local:` address and no error.
 
 Do not change the app's files, config or `package.json`. Verbally needs no change in the project.
 
@@ -60,7 +60,7 @@ Do not change the app's files, config or `package.json`. Verbally needs no chang
 
 Give the user these lines:
 
-- The app is open at `http://localhost:5180` with a small bar in the corner.
+- The app is open at its usual address (the `Local:` line) with a small bar in the corner.
 - With a dictation app (step 3): put the mouse on an element, hold the key of that app (the `dictation` line of `verbally doctor` names it for Hex) and say a change, for example "make this heading bigger". Hold `⌥ Option` (`Alt` on Linux) and move the mouse to point at several elements.
 - Without one: hold `⌥ Option` (`Alt` on Linux) and say the change. Chrome asks for the microphone once: allow it. Move the mouse while you hold `⌥ Option` to point at an element.
 - `⌘Z` (`Ctrl+Z` on Linux) puts a change back.

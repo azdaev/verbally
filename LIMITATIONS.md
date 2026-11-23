@@ -8,7 +8,7 @@ Tested on a new Vite 8 + React 19 app and on a larger Vite 8 + React 18 app with
 
 - **Vite and React only.** `code/dev.mjs` runs the app's own Vite and writes a `data-vsrc="file:line"` mark into every JSX element. Next.js, Svelte, Vue and server templates have no marks, so pointing finds no source.
   Open: find the file with a text search, see "A locator without marks" below.
-- **A second dev server.** Verbally starts its own copy of the app's dev server on port 5180. An app that depends on its port (OAuth callbacks, CORS lists) can fail there.
+- **A second dev server.** Verbally starts its own copy of the app's dev server. Done: it takes the app's own port (from `vite.config`, else 5173), so OAuth callbacks and CORS lists work; the user stops their own dev server first.
   Open: put the bar on the dev server that the user already runs: a plugin line in the app's config, or a script tag.
 - **Vite 7 and older need `@babel/core` in the app.** Vite 8 has a parser of its own. Both paths give the same marks.
 - **Shared components.** A mark points to the file that writes the HTML element. A `<Button>` used on 20 pages leads to `Button.tsx`. The model also gets the next file up and is told to prefer it for a change of one place.
