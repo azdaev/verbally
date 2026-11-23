@@ -156,7 +156,11 @@ setupReady.then(d => {
   const c = dictation ? chip(d.key ? `Hold ${d.key}, point and talk` : 'Use its key, point with the mouse and talk', 'hint')
     : chip('Hold ⌥ or Space and talk, or press / to type. Move the mouse while you hold ⌥ to point at a thing.', 'hint')
   c.update({ title: dictation ? 'Speech: ' + (d.app || 'your dictation app') : 'Talk to change the page' })
-  leave(c, 9000)
+  // What to say is the other half of the first success: a click on an example sends it as if spoken.
+  // The mouse is on the bar then, so the examples name their target instead of saying "this".
+  c.update({ tries: UI.getSnapshot().code ? ['Make the main heading bigger', 'Show three versions of the header', 'Make all buttons rounder']
+    : ['A landing page for a coffee shop', 'Show three versions of the hero', 'Make it dark'] })
+  leave(c, 20000)
 }).catch(() => {})
 addEventListener('paste', e => {
   // A bar button keeps the focus after a click, so the dictation app's paste can land on the bar: that is speech too.

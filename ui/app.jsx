@@ -76,6 +76,7 @@ function Tasks() {
     const title = t.title || (t.kind === 'err' && rawError(t.text)) || ''
     return <div key={t.id} className={`ph ${t.kind} ${pending ? 'wip' : ''} ${t.look ? 'look' : ''} ${t.out ? 'out' : ''}`}>
       <b>{title || t.text}</b>{title ? <small>{t.text}</small> : pending && <small>Working…</small>}
+      {t.tries && <span className="files">{t.tries.map(s => <button key={s} type="button" title="Send this phrase" onClick={() => { t.handle.remove(); ui.actions.type?.(s) }}>“{s}”</button>)}</span>}
       {t.files?.length > 0 && <span className="files">{t.files.map(f => <button key={f.file} type="button" title="Open in your editor" onClick={() => ui.actions.open?.(f)}>{f.file}:{f.line} ↗</button>)}</span>}
       {pending && <IconButton className="x" label={`Cancel ${t.text}`} icon={X} onClick={() => ui.actions.cancel?.(t.handle)} />}
       {t.kind === 'err' && <IconButton className="x" label="Dismiss" icon={X} onClick={() => t.handle.remove()} />}

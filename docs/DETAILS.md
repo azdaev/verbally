@@ -34,6 +34,7 @@ Verbally starts the app's own Vite dev server on port 5180, with the bar on top.
 - **Talk:** hold `⌥ Option` (`Alt` on Linux) and speak. Release the key when you are done.
 - **Point:** move the mouse while you hold `⌥ Option`. Stop on a place for a moment to set a mark ①. Say "make this ① like that ②".
 - **Type instead:** press `/` (or the keyboard button on the bar), type the change and press Enter. The element under the mouse counts, as with speech.
+- **No pointer:** with no element pointed at or under the mouse, the change goes to the element in the middle of the screen, or to the app's outer component when nothing of the app is there. The first-run card has three example phrases; a click sends one this way.
 - **Many versions:** say "show me three versions of this card", then pick one.
 - **Undo and redo:** `⌘Z` and `⇧⌘Z` (`Ctrl+Z` and `Shift+Ctrl+Z` on Linux), or the buttons on the bar. Undo puts the file back.
 - **Open the change:** a done card names each changed file at the line of the edit. A click opens it there in your editor through Vite's `/__open-in-editor` (it finds a running VS Code, Cursor, WebStorm and others; set `LAUNCH_EDITOR` to pick one).

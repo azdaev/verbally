@@ -69,9 +69,10 @@ async function change(cmd, pointed, el) {
   await codeReady
   const t = await fetch(VB + '/api/triage', { method: 'POST', body: JSON.stringify({ text: cmd }) }).then(r => r.json()).catch(() => ({}))
   if (t.filler) return 0
-  // No pointing with ⌥: the element under the mouse. No mouse yet: the middle of the screen.
+  // No pointing with ⌥: the element under the mouse. No mouse yet: the middle of the screen, or else the app's outer component.
   const hover = !pointed && underMouse()?.closest('[data-vsrc]')
-  const target = pointed?.els.at(-1) || hover || document.elementFromPoint(innerWidth / 2, innerHeight / 2)
+  const mid = document.elementFromPoint(innerWidth / 2, innerHeight / 2)
+  const target = pointed?.els.at(-1) || hover || (mid?.closest('[data-vsrc]') ? mid : document.querySelector('[data-vsrc]') || mid)
   // The files of the pointed element, then the file of each mark: "make this ① like that ②" can span two components.
   const paths = [...new Set([...files(target), ...(pointed?.marks || []).flatMap(m => files(m.el).slice(0, 1))])].slice(0, 4)
   if (!paths.length) throw new Error('No source code here. Hold ⌥ Option and point at the app.')
