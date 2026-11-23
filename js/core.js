@@ -79,9 +79,10 @@ const smooth = draw => document.startViewTransition ? document.startViewTransiti
 
 // Task handles contain engine metadata; React renders their state.
 const chip = (text, kind) => UI.task(text, kind)
+// A card that the user holds open (its diff) stays until they close it.
 function leave(task, after) {
-  setTimeout(() => task.update({ out: true }), after)
-  setTimeout(() => task.remove(), after + 300)
+  setTimeout(() => task.held || task.update({ out: true }), after)
+  setTimeout(() => task.held || task.remove(), after + 300)
 }
 // stash writes a copy for after a reload. A full browser storage loses only that copy: the work on the page goes on.
 const stash = (key, value) => { try { localStorage.setItem(key, value) } catch {} }

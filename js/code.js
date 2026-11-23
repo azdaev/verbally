@@ -42,6 +42,15 @@ function apply(text, blocks) {
 }
 check(apply('a b c', [['b', 'x']]) === 'a x c' && apply('b b', [['b', 'x']]) === '', 'apply')
 
+// diff gives the changed lines of edit blocks, `- old` and `+ new`, without the lines that both texts share at the ends.
+const diff = bs => bs.flatMap(([, , from, to]) => {
+  const a = from.split('\n'), b = to.split('\n')
+  while (a.length && b.length && a[0] === b[0]) { a.shift(); b.shift() }
+  while (a.length && b.length && a.at(-1) === b.at(-1)) { a.pop(); b.pop() }
+  return [...a.map(l => '- ' + l.trim()), ...b.map(l => '+ ' + l.trim())]
+})
+check(diff([[0, 0, 'a\nb\nc', 'a\nB\nc']]).join('|') === '- b|+ B', 'diff')
+
 function hear(text, final, also = []) {
   const cmd = text.replace(/^[\s.,;:!?-]+/, '').trim()
   if (point) spoke = point
@@ -127,7 +136,7 @@ async function change(cmd, pointed, el, also = []) {
     // The card names each changed file at the line of its first edit; a click opens it there in the user's editor.
     el.update({ files: await Promise.all([...byFile].map(async ([file, bs]) => {
       const text = await read(file).catch(() => ''), at = text.indexOf(bs[0][3])
-      return { file, line: at < 0 ? 1 : text.slice(0, at).split('\n').length }
+      return { file, line: at < 0 ? 1 : text.slice(0, at).split('\n').length, diff: diff(bs).slice(0, 24) }
     })) })
     return byFile.size
   } finally {

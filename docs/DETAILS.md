@@ -39,6 +39,7 @@ Verbally starts the app's own Vite dev server at the app's usual address (the po
 - **Undo and redo:** `⌘Z` and `⇧⌘Z` (`Ctrl+Z` and `Shift+Ctrl+Z` on Linux), or the buttons on the bar. Undo puts the file back.
 - **A broken build:** when Vite shows its error screen within 2 minutes of a change, a card names the error. "Fix it" closes the screen and sends the error and the broken file to the model, like a spoken phrase.
 - **Open the change:** a done card names each changed file at the line of the edit. A click opens it there in your editor through Vite's `/__open-in-editor` (it finds a running VS Code, Cursor, WebStorm and others; set `LAUNCH_EDITOR` to pick one).
+- **See the change:** "Diff" on a done card shows the changed lines and keeps the card open until you close it.
 - **Cancel:** the `×` on a task card.
 
 Code mode works with **Vite + React** today. See [LIMITATIONS.md](../LIMITATIONS.md) for other stacks.

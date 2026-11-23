@@ -209,6 +209,13 @@
 #tasks .ph .files button { padding: 2px 8px; border: 0; border-radius: 999px; background: color-mix(in srgb, currentColor 10%, transparent); color: inherit;
                            font: 12px/18px ui-monospace, 'Geist Mono', monospace; cursor: pointer; }
 #tasks .ph .files button:hover { background: color-mix(in srgb, currentColor 18%, transparent); }
+#tasks .ph.held { width: min(520px, calc(100vw - 32px)); }
+#tasks .ph.held .x { display: block; opacity: 1; }
+#tasks .ph .diff { margin: 8px 0 2px; padding: 8px 10px; max-height: 240px; overflow: auto; border-radius: 8px; background: var(--vb-surface);
+                   font: 12px/18px ui-monospace, 'Geist Mono', monospace; color: var(--vb-text); white-space: pre-wrap; overflow-wrap: anywhere; }
+#tasks .ph .diff span { display: block; }
+#tasks .ph .diff .del { color: var(--vb-danger); }
+#tasks .ph .diff .ins { color: var(--vb-success); }
 #tasks .ph.look:not(.done) b::before { content: '👁 '; }
 #tasks .ph.skip { opacity: .5; text-decoration: line-through; }
 #tasks .ph.err { background: var(--vb-danger-bg); color: var(--vb-danger); }
