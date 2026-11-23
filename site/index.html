@@ -199,8 +199,16 @@ footer .logo { font-size: 17px; }
 footer small { font-size: 13px; color: var(--text-4); }
 footer .links { display: flex; gap: 24px; font-size: 13px; color: var(--text-2); }
 
+.vs { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.vs > div { display: flex; flex-direction: column; gap: 14px; padding: 22px; border: 1px solid var(--line); border-radius: 14px; }
+.vs .lbl { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-4); }
+.vs .typed { margin: 0; padding: 14px 16px; border-radius: 10px; background: var(--soft); font: 13px/1.6 'Geist Mono', monospace; color: var(--text-2); }
+.vs .said { background: var(--ink); color: #fff; border-color: var(--ink); }
+.vs .said .lbl { color: #A3A3A3; }
+.vs .said .say { align-self: flex-start; }
+.vs .said p { margin: 0; font-size: 14px; line-height: 21px; color: #D4D4D4; }
 @media (max-width: 900px) {
-  .grid3, .agents { grid-template-columns: 1fr; }
+  .grid3, .agents, .vs { grid-template-columns: 1fr; }
   .apps { grid-template-columns: repeat(3, 1fr); }
   nav .links { display: none; }
 }
@@ -318,6 +326,21 @@ footer .links { display: flex; gap: 24px; font-size: 13px; color: var(--text-2);
       <div class="step">
         <div class="vis"><div class="mini"><header><span>src/App.tsx</span><span><span class="plus">+2</span> <span class="minus">−1</span></span></header><div class="body"><div class="del">− border-dashed</div><div class="ins">+ bg-zinc-900 text-white</div><div class="ins">+ py-3.5 font-medium</div></div></div></div>
         <div class="txt"><h3><span class="mono">03</span>It lands in the file</h3><p>Claude Code or Codex edits the source, Vite reloads the page. ⌘Z (Ctrl+Z on Linux) undoes it.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="vs">
+    <h2>Pointing says what a prompt can't</h2>
+    <div class="vs">
+      <div>
+        <div class="lbl"><span>Typed to an agent</span><span class="mono">46 words</span></div>
+        <p class="typed">In the task list on the main page, the “Add a task” button under the input, the one with the dashed border, make it a solid dark button with white text, a bit taller, and keep the width as it is. Don't change the other buttons.</p>
+      </div>
+      <div class="said">
+        <div class="lbl"><span>Said to Verbally</span><span class="mono">5 words</span></div>
+        <div class="say"><span class="mic"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FF3B30" stroke-width="2.4" stroke-linecap="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><path d="M12 18v4"/></svg></span>make it a solid button</div>
+        <p>The mouse on the button tells which one, in which file, at which line. You say only the change, then the next one.</p>
       </div>
     </div>
   </section>
